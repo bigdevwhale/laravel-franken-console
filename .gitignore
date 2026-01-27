@@ -1,0 +1,37 @@
+# Composer
+/vendor/
+
+# Environment
+.env
+.env.*
+
+# Node
+/node_modules/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and caches
+*.log
+.cache/
+.phpunit.result.cache
+
+# Build / dist
+/build/
+/dist/
+
+# PHPUnit
+/coverage/
+
+# Storage / runtime (Laravel)
+/storage/
+/bootstrap/cache/
+
+# Ignore composer lock? keep it for apps, but if you want to ignore uncomment:
+# /composer.lock
