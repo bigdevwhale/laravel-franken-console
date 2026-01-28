@@ -7,11 +7,41 @@ namespace Franken\Console\Support;
 class Theme
 {
     private array $colors;
+    private string $themeName;
 
-    public function __construct()
+    public function __construct(?string $themeName = null)
     {
-        $themeName = config('franken.theme.name', 'dark');
-        $this->colors = config("franken.theme.themes.{$themeName}", config('franken.theme.colors', []));
+        $this->themeName = $themeName ?? config('franken.theme.name', 'dark');
+        
+        // First try to get theme-specific colors
+        $themeColors = config("franken.theme.themes.{$this->themeName}");
+        
+        // Fall back to default colors if theme not found
+        if (empty($themeColors)) {
+            $themeColors = config('franken.theme.colors');
+        }
+        
+        // If still empty, use hardcoded defaults
+        if (empty($themeColors)) {
+            $themeColors = $this->getDefaultColors();
+        }
+        
+        $this->colors = $themeColors;
+    }
+
+    private function getDefaultColors(): array
+    {
+        return [
+            'primary' => 'cyan',
+            'secondary' => 'yellow',
+            'error' => 'red',
+            'success' => 'green',
+            'warning' => 'yellow',
+            'info' => 'blue',
+            'muted' => 'gray',
+            'background' => 'black',
+            'foreground' => 'white',
+        ];
     }
 
     public function color(string $name): string
@@ -21,7 +51,13 @@ class Theme
 
     public function ansi(string $name): string
     {
-        return match($this->color($name)) {
+        $colorName = $this->color($name);
+        return $this->colorToAnsi($colorName);
+    }
+
+    private function colorToAnsi(string $color): string
+    {
+        return match($color) {
             'black' => "\033[30m",
             'red' => "\033[31m",
             'green' => "\033[32m",
@@ -42,9 +78,9 @@ class Theme
         };
     }
 
-    public function styled(string $text, string $color): string
+    public function styled(string $text, string $colorName): string
     {
-        return $this->ansi($color) . $text . "\033[0m";
+        return $this->ansi($colorName) . $text . "\033[0m";
     }
 
     public function dim(string $text): string
@@ -60,5 +96,57 @@ class Theme
     public function underline(string $text): string
     {
         return "\033[4m" . $text . "\033[0m";
+    }
+
+    public function italic(string $text): string
+    {
+        return "\033[3m" . $text . "\033[0m";
+    }
+
+    public function strikethrough(string $text): string
+    {
+        return "\033[9m" . $text . "\033[0m";
+    }
+
+    public function inverse(string $text): string
+    {
+        return "\033[7m" . $text . "\033[0m";
+    }
+
+    public function reset(): string
+    {
+        return "\033[0m";
+    }
+
+    /**
+     * Create a box around text
+     */
+    public function box(string $text, int $width = 0): string
+    {
+        $lines = explode("\n", $text);
+        $maxLen = $width ?: max(array_map('mb_strlen', $lines));
+
+        $output = '┌' . str_repeat('─', $maxLen + 2) . '┐' . "\n";
+        foreach ($lines as $line) {
+            $padding = $maxLen - mb_strlen($line);
+            $output .= '│ ' . $line . str_repeat(' ', $padding) . ' │' . "\n";
+        }
+        $output .= '└' . str_repeat('─', $maxLen + 2) . '┘';
+
+        return $output;
+    }
+
+    /**
+     * Create a progress bar
+     */
+    public function progressBar(float $percent, int $width = 20): string
+    {
+        $filled = (int) round(($percent / 100) * $width);
+        $empty = $width - $filled;
+
+        $color = $percent > 80 ? 'error' : ($percent > 60 ? 'warning' : 'success');
+
+        return $this->styled(str_repeat('█', $filled), $color) . 
+               $this->styled(str_repeat('░', $empty), 'muted');
     }
 }

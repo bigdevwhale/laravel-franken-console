@@ -15,15 +15,21 @@ class LogsPanel
     private string $searchQuery = '';
     private array $filteredLogs = [];
     private Theme $theme;
+    private int $terminalHeight = 24;
 
     public function __construct(private LogAdapter $adapter)
     {
         $this->theme = new Theme();
     }
 
+    public function setTerminalHeight(int $height): void
+    {
+        $this->terminalHeight = $height;
+    }
+
     public function render(): string
     {
-        $logs = $this->adapter->getRecentLogs(100); // Get more logs for scrolling
+        $logs = $this->adapter->getRecentLogs(100);
 
         // Filter logs if searching
         if ($this->searchMode && !empty($this->searchQuery)) {
@@ -33,47 +39,123 @@ class LogsPanel
             });
         }
 
-        $this->filteredLogs = array_values($logs); // Re-index
+        $this->filteredLogs = array_values($logs);
 
-        $output = $this->theme->styled("Logs", 'primary') . "\n";
-
+        $output = "\n";
+        $output .= $this->theme->styled("  Log Viewer", 'secondary');
+        
         if ($this->searchMode) {
-            $output .= "Search: {$this->searchQuery}_\n\n";
+            $output .= "  " . $this->theme->styled("Search: ", 'primary') . $this->searchQuery . $this->theme->styled("▌", 'primary');
         }
+        
+        $output .= "\n";
+        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────────────────\n", 'muted');
 
-        $terminalHeight = $this->getTerminalHeight();
-        $visibleLines = $terminalHeight - 5; // Leave space for header and footer
-
+        $visibleLines = $this->getVisibleLines();
         $start = max(0, $this->scrollOffset);
         $end = min(count($this->filteredLogs), $start + $visibleLines);
 
-        for ($i = $start; $i < $end; $i++) {
-            $log = $this->filteredLogs[$i];
-            $marker = ($i === $this->selectedIndex) ? $this->theme->styled(">> ", 'secondary') : "   ";
+        if (empty($this->filteredLogs)) {
+            $output .= $this->theme->dim("  No logs found" . ($this->searchMode ? " matching '" . $this->searchQuery . "'" : "") . "\n");
+        } else {
+            for ($i = $start; $i < $end; $i++) {
+                $log = $this->filteredLogs[$i];
+                $isSelected = ($i === $this->selectedIndex);
+                
+                $marker = $isSelected ? $this->theme->styled('▸ ', 'primary') : '  ';
 
-            $color = match($log['level']) {
-                'error', 'critical', 'alert', 'emergency' => 'error',
-                'warning' => 'warning',
-                'info', 'notice' => 'info',
-                'debug' => 'muted',
-                default => 'foreground',
-            };
+                $levelColor = $this->getLevelColor($log['level']);
+                $levelBadge = $this->formatLevelBadge($log['level']);
 
-            $level = strtoupper($log['level']);
-            $output .= "$marker" . $this->theme->styled("[$level]", $color) . " {$log['message']}\n";
+                // Truncate long messages
+                $message = $log['message'];
+                $maxMsgLen = 60;
+                if (strlen($message) > $maxMsgLen) {
+                    $message = substr($message, 0, $maxMsgLen) . '...';
+                }
+
+                // Highlight search query in message
+                if ($this->searchMode && !empty($this->searchQuery)) {
+                    $message = $this->highlightSearch($message, $this->searchQuery);
+                }
+
+                $timestamp = $this->formatTimestamp($log['timestamp']);
+
+                $output .= sprintf(
+                    "%s%s %s %s\n",
+                    $marker,
+                    $this->theme->dim($timestamp),
+                    $this->theme->styled($levelBadge, $levelColor),
+                    $message
+                );
+            }
         }
 
-        // Add scroll indicators
+        // Scroll indicators
+        $output .= "\n";
+        
+        $totalLogs = count($this->filteredLogs);
+        $showing = min($end - $start, $totalLogs);
+        $statusLine = "  Showing {$showing} of {$totalLogs} entries";
+        
         if ($this->scrollOffset > 0) {
-            $output .= "\n" . $this->theme->dim("↑ More logs above");
+            $statusLine .= " " . $this->theme->dim("↑ more above");
         }
         if ($end < count($this->filteredLogs)) {
-            $output .= "\n" . $this->theme->dim("↓ More logs below");
+            $statusLine .= " " . $this->theme->dim("↓ more below");
         }
 
-        $output .= "\n" . $this->theme->dim("Use ↑↓ to navigate, / to search, q to quit");
+        $output .= $this->theme->dim($statusLine) . "\n";
+        $output .= "\n";
+        $output .= $this->theme->dim("  / Search  ↑↓ Navigate  PgUp/PgDn Page  Home/End Jump\n");
 
         return $output;
+    }
+
+    private function getLevelColor(string $level): string
+    {
+        return match(strtolower($level)) {
+            'emergency', 'alert', 'critical', 'error' => 'error',
+            'warning' => 'warning',
+            'notice', 'info' => 'info',
+            'debug' => 'muted',
+            default => 'foreground',
+        };
+    }
+
+    private function formatLevelBadge(string $level): string
+    {
+        $level = strtoupper(substr($level, 0, 5));
+        return sprintf('[%-5s]', $level);
+    }
+
+    private function formatTimestamp(string $timestamp): string
+    {
+        try {
+            $dt = new \DateTime($timestamp);
+            return $dt->format('H:i:s');
+        } catch (\Exception $e) {
+            return substr($timestamp, 11, 8);
+        }
+    }
+
+    private function highlightSearch(string $text, string $query): string
+    {
+        $pos = stripos($text, $query);
+        if ($pos === false) {
+            return $text;
+        }
+
+        $before = substr($text, 0, $pos);
+        $match = substr($text, $pos, strlen($query));
+        $after = substr($text, $pos + strlen($query));
+
+        return $before . $this->theme->styled($match, 'warning') . $after;
+    }
+
+    private function getVisibleLines(): int
+    {
+        return max(5, $this->terminalHeight - 10);
     }
 
     public function scrollUp(): void
@@ -94,14 +176,14 @@ class LogsPanel
 
     public function pageUp(): void
     {
-        $pageSize = $this->getTerminalHeight() - 5;
+        $pageSize = $this->getVisibleLines();
         $this->selectedIndex = max(0, $this->selectedIndex - $pageSize);
         $this->adjustScroll();
     }
 
     public function pageDown(): void
     {
-        $pageSize = $this->getTerminalHeight() - 5;
+        $pageSize = $this->getVisibleLines();
         $maxIndex = count($this->filteredLogs) - 1;
         $this->selectedIndex = min($maxIndex, $this->selectedIndex + $pageSize);
         $this->adjustScroll();
@@ -125,6 +207,11 @@ class LogsPanel
         $this->searchQuery = '';
     }
 
+    public function exitSearchMode(): void
+    {
+        $this->searchMode = false;
+    }
+
     public function isInSearchMode(): bool
     {
         return $this->searchMode;
@@ -139,25 +226,21 @@ class LogsPanel
 
     public function removeSearchChar(): void
     {
-        $this->searchQuery = substr($this->searchQuery, 0, -1);
-        $this->selectedIndex = 0;
-        $this->scrollOffset = 0;
+        if (strlen($this->searchQuery) > 0) {
+            $this->searchQuery = substr($this->searchQuery, 0, -1);
+            $this->selectedIndex = 0;
+            $this->scrollOffset = 0;
+        }
     }
 
     private function adjustScroll(): void
     {
-        $visibleLines = $this->getTerminalHeight() - 5;
+        $visibleLines = $this->getVisibleLines();
 
         if ($this->selectedIndex < $this->scrollOffset) {
             $this->scrollOffset = $this->selectedIndex;
         } elseif ($this->selectedIndex >= $this->scrollOffset + $visibleLines) {
             $this->scrollOffset = $this->selectedIndex - $visibleLines + 1;
         }
-    }
-
-    private function getTerminalHeight(): int
-    {
-        // Default fallback
-        return 24;
     }
 }

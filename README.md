@@ -5,7 +5,7 @@ A high-end TUI dashboard for Laravel.
 ## Installation
 
 ```bash
-composer require --dev bigdevwhaler/laravel-franken-console
+composer require --dev bigdevwhale/laravel-franken-console
 ```
 
 # Franken Console 🧟‍♂️🚀

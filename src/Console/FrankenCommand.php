@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace Franken\Console\Console;
 
 use Illuminate\Console\Command;
-use React\EventLoop\Loop;
-use React\Stream\ReadableResourceStream;
 use Franken\Console\UI\Dashboard;
 use Franken\Console\Adapters\QueueAdapter;
 use Franken\Console\Adapters\LogAdapter;
 use Franken\Console\Adapters\CacheAdapter;
 use Franken\Console\Adapters\MetricsAdapter;
+use Franken\Console\Support\Terminal;
 
 class FrankenCommand extends Command
 {
@@ -23,7 +22,10 @@ class FrankenCommand extends Command
     private LogAdapter $logAdapter;
     private CacheAdapter $cacheAdapter;
     private MetricsAdapter $metricsAdapter;
+    private array $keybindings = [];
     private float $lastPollTime = 0;
+    private Terminal $terminal;
+    private bool $running = true;
 
     private function shouldPoll(): bool
     {
@@ -40,41 +42,75 @@ class FrankenCommand extends Command
     public function __construct()
     {
         parent::__construct();
+    }
+
+    protected function setup(): void
+    {
+        $this->keybindings = config('franken.keybindings', [
+            'quit' => 'q',
+            'refresh' => 'r',
+            'restart_worker' => 'R',
+            'clear_cache' => 'c',
+            'search_logs' => '/',
+            'navigate_down' => 'j',
+            'navigate_up' => 'k',
+            'switch_overview' => '1',
+            'switch_queues' => '2',
+            'switch_jobs' => '3',
+            'switch_logs' => '4',
+            'switch_cache' => '5',
+            'switch_scheduler' => '6',
+            'switch_metrics' => '7',
+            'switch_shell' => '8',
+            'switch_settings' => '9',
+        ]);
+
         $this->queueAdapter = new QueueAdapter();
         $this->logAdapter = new LogAdapter();
         $this->cacheAdapter = new CacheAdapter();
         $this->metricsAdapter = new MetricsAdapter();
+        $this->terminal = new Terminal();
         $this->dashboard = new Dashboard(
             $this->queueAdapter,
             $this->logAdapter,
             $this->cacheAdapter,
-            $this->metricsAdapter
+            $this->metricsAdapter,
+            $this->terminal
         );
-        $this->keybindings = config('franken.keybindings', []);
     }
 
     public function handle(): int
     {
+        $this->setup();
+        
         $this->info('Starting Franken-Console... Press q to quit.');
 
-        // Set terminal to raw mode for key input
-        system('stty raw -echo');
+        // Set terminal to raw mode for key input (cross-platform)
+        $this->terminal->enableRawMode();
+
+        // Enter alternate screen buffer
+        $this->terminal->enterAlternateScreen();
+
+        // Hide cursor
+        $this->terminal->hideCursor();
 
         $this->render();
 
         // Main loop using stream_select for better input handling
-        while (true) {
+        while ($this->running) {
             $read = [STDIN];
             $write = null;
             $except = null;
 
-            // Poll for input with timeout
-            $result = @stream_select($read, $write, $except, 0, 100000); // 100ms timeout
+            // Poll for input with timeout (25ms = ~40 FPS like Solo)
+            $result = @stream_select($read, $write, $except, 0, 25000);
 
             if ($result === 1) {
                 $key = fread(STDIN, 10);
-                if ($this->handleKey($key)) {
-                    break; // Quit
+                if ($key !== false && $key !== '') {
+                    if ($this->handleKey($key)) {
+                        break; // Quit
+                    }
                 }
             }
 
@@ -86,7 +122,9 @@ class FrankenCommand extends Command
         }
 
         // Restore terminal
-        system('stty sane');
+        $this->terminal->showCursor();
+        $this->terminal->exitAlternateScreen();
+        $this->terminal->disableRawMode();
 
         return 0;
     }
@@ -98,66 +136,80 @@ class FrankenCommand extends Command
             return $this->handleEscapeSequence($key);
         }
 
+        // Handle Ctrl+C
+        if ($key === "\x03") {
+            return true; // Quit
+        }
+
+        // Get keybinding or use default empty string
+        $quitKey = $this->keybindings['quit'] ?? 'q';
+        $refreshKey = $this->keybindings['refresh'] ?? 'r';
+        $clearCacheKey = $this->keybindings['clear_cache'] ?? 'c';
+        $restartWorkerKey = $this->keybindings['restart_worker'] ?? 'R';
+        $searchLogsKey = $this->keybindings['search_logs'] ?? '/';
+        $navDownKey = $this->keybindings['navigate_down'] ?? 'j';
+        $navUpKey = $this->keybindings['navigate_up'] ?? 'k';
+
         // Single character keys
         switch ($key) {
-            case $this->keybindings['quit']:
+            case $quitKey:
                 return true; // Quit
-            case $this->keybindings['refresh']:
+            case $refreshKey:
                 $this->render();
                 break;
-            case $this->keybindings['switch_overview']:
+            case '1':
                 $this->dashboard->switchPanel('overview');
                 $this->render();
                 break;
-            case $this->keybindings['switch_queues']:
+            case '2':
                 $this->dashboard->switchPanel('queues');
                 $this->render();
                 break;
-            case $this->keybindings['switch_jobs']:
+            case '3':
                 $this->dashboard->switchPanel('jobs');
                 $this->render();
                 break;
-            case $this->keybindings['switch_logs']:
+            case '4':
                 $this->dashboard->switchPanel('logs');
                 $this->render();
                 break;
-            case $this->keybindings['switch_cache']:
+            case '5':
                 $this->dashboard->switchPanel('cache');
                 $this->render();
                 break;
-            case $this->keybindings['switch_scheduler']:
+            case '6':
                 $this->dashboard->switchPanel('scheduler');
                 $this->render();
                 break;
-            case $this->keybindings['switch_metrics']:
+            case '7':
                 $this->dashboard->switchPanel('metrics');
                 $this->render();
                 break;
-            case $this->keybindings['switch_shell']:
+            case '8':
                 $this->dashboard->switchPanel('shell');
                 $this->render();
                 break;
-            case $this->keybindings['switch_settings']:
+            case '9':
                 $this->dashboard->switchPanel('settings');
                 $this->render();
                 break;
-            case $this->keybindings['clear_cache']:
+            case $clearCacheKey:
                 $this->cacheAdapter->clearCache();
-                $this->info('Cache cleared');
+                $this->render();
                 break;
-            case $this->keybindings['restart_worker']:
+            case $restartWorkerKey:
                 $this->queueAdapter->restartWorker();
-                $this->info('Worker restart attempted');
+                $this->render();
                 break;
-            case $this->keybindings['search_logs']:
+            case $searchLogsKey:
                 $this->dashboard->enterSearchMode();
                 $this->render();
                 break;
-            case $this->keybindings['navigate_down']:
+            case $navDownKey:
                 $this->dashboard->navigateDown();
                 $this->render();
                 break;
-            case $this->keybindings['navigate_up']:
+            case $navUpKey:
                 $this->dashboard->navigateUp();
                 $this->render();
                 break;
@@ -185,12 +237,12 @@ class FrankenCommand extends Command
                 $this->dashboard->navigateDown();
                 $this->render();
                 break;
-            case "\033[D": // Left arrow
-                $this->dashboard->navigateLeft();
+            case "\033[D": // Left arrow - previous tab
+                $this->dashboard->previousPanel();
                 $this->render();
                 break;
-            case "\033[C": // Right arrow
-                $this->dashboard->navigateRight();
+            case "\033[C": // Right arrow - next tab
+                $this->dashboard->nextPanel();
                 $this->render();
                 break;
             case "\033[5~": // Page Up
@@ -202,17 +254,26 @@ class FrankenCommand extends Command
                 $this->render();
                 break;
             case "\033[H": // Home
+            case "\033[1~": // Home (alternate)
                 $this->dashboard->scrollToTop();
                 $this->render();
                 break;
             case "\033[F": // End
+            case "\033[4~": // End (alternate)
                 $this->dashboard->scrollToBottom();
                 $this->render();
                 break;
             case "\177": // Backspace (escape sequence)
             case "\b":   // Backspace (direct)
+            case "\x7f": // Delete
                 if ($this->dashboard->isInSearchMode()) {
                     $this->dashboard->removeSearchChar();
+                    $this->render();
+                }
+                break;
+            case "\033": // Escape key alone
+                if ($this->dashboard->isInSearchMode()) {
+                    $this->dashboard->exitSearchMode();
                     $this->render();
                 }
                 break;
@@ -235,8 +296,13 @@ class FrankenCommand extends Command
 
     private function render(): void
     {
-        // Clear screen and render
-        echo "\033[2J\033[H"; // Clear screen and move to top
-        echo $this->dashboard->render();
+        $output = $this->dashboard->render();
+        
+        // Move cursor to home position (top-left) and write output
+        echo "\033[H"; // Move to top-left
+        echo $output;
+        
+        // Clear any remaining content below
+        echo "\033[J";
     }
 }
