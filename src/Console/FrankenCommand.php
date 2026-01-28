@@ -296,13 +296,14 @@ class FrankenCommand extends Command
 
     private function render(): void
     {
-        $output = $this->dashboard->render();
+        // Clear screen and move cursor to home position
+        echo "\033[2J"; // Clear entire screen
+        echo "\033[H";  // Move cursor to home (top-left)
         
-        // Move cursor to home position (top-left) and write output
-        echo "\033[H"; // Move to top-left
+        $output = $this->dashboard->render();
         echo $output;
         
-        // Clear any remaining content below
-        echo "\033[J";
+        // Flush output buffer
+        flush();
     }
 }

@@ -59,22 +59,40 @@ class Dashboard
         $width = $this->terminal->getWidth();
         $height = $this->terminal->getHeight();
 
-        $output = '';
+        $lines = [];
 
         // Render header/tab bar
-        $output .= $this->renderTabBar($width) . "\n";
+        $lines[] = $this->renderTabBar($width);
         
         // Render separator
-        $output .= $this->theme->styled(str_repeat('─', $width), 'muted') . "\n";
+        $lines[] = $this->theme->styled(str_repeat('─', $width), 'muted');
 
         // Get current panel
         $panel = $this->panels[$this->currentPanel] ?? $this->panels['overview'];
         
-        // Render panel content
-        $output .= $panel->render();
+        // Render panel content and split into lines
+        $panelContent = $panel->render();
+        $panelLines = explode("\n", $panelContent);
+        foreach ($panelLines as $line) {
+            $lines[] = $line;
+        }
 
-        // Add some padding
-        $output .= "\n";
+        // Pad to fill screen height, leaving room for hotkey bar
+        $contentHeight = count($lines);
+        $targetHeight = max(0, $height - 2); // Leave 2 lines for hotkey bar
+        
+        while (count($lines) < $targetHeight) {
+            $lines[] = '';
+        }
+
+        // Clear each line to full width to prevent artifacts
+        $output = '';
+        foreach ($lines as $line) {
+            // Strip visible length for padding calculation
+            $visibleLen = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $line));
+            $padding = max(0, $width - $visibleLen);
+            $output .= $line . str_repeat(' ', $padding) . "\033[K\n";
+        }
 
         // Render hotkey bar at bottom
         $output .= $this->renderHotkeyBar($width);
