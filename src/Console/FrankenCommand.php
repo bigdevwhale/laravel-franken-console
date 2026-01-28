@@ -296,14 +296,23 @@ class FrankenCommand extends Command
 
     private function render(): void
     {
-        // Clear screen and move cursor to home position
-        echo "\033[2J"; // Clear entire screen
-        echo "\033[H";  // Move cursor to home (top-left)
+        // Force terminal to re-read dimensions on each render
+        // This handles resize events properly
+        $this->terminal->refreshDimensions();
+        
+        // Reset all terminal state and position
+        echo "\033[?25l";   // Hide cursor
+        echo "\033[H";      // Move cursor to home (1,1)
+        echo "\033[2J";     // Clear entire screen
+        echo "\033[H";      // Move cursor to home again (ensure position)
         
         $output = $this->dashboard->render();
         echo $output;
         
         // Flush output buffer
+        if (function_exists('ob_flush')) {
+            @ob_flush();
+        }
         flush();
     }
 }

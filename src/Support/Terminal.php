@@ -12,10 +12,27 @@ class Terminal
     private bool $isWindows;
     private bool $rawModeEnabled = false;
     private ?string $originalSttySettings = null;
+    
+    // Cache dimensions for performance, but allow refresh on resize
+    private ?int $cachedWidth = null;
+    private ?int $cachedHeight = null;
+    private float $lastDimensionCheck = 0;
+    private const DIMENSION_CACHE_TTL = 0.5; // Refresh dimensions every 0.5 seconds
 
     public function __construct()
     {
         $this->isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+    }
+
+    /**
+     * Force refresh of terminal dimensions.
+     * Call this before rendering after potential resize.
+     */
+    public function refreshDimensions(): void
+    {
+        $this->cachedWidth = null;
+        $this->cachedHeight = null;
+        $this->lastDimensionCheck = 0;
     }
 
     /**
@@ -106,41 +123,69 @@ class Terminal
     }
 
     /**
+     * Check if dimensions cache should be refreshed.
+     */
+    private function shouldRefreshDimensions(): bool
+    {
+        return (microtime(true) - $this->lastDimensionCheck) >= self::DIMENSION_CACHE_TTL;
+    }
+
+    /**
      * Get terminal width.
      */
     public function getWidth(): int
     {
+        if ($this->cachedWidth !== null && !$this->shouldRefreshDimensions()) {
+            return $this->cachedWidth;
+        }
+
+        $this->lastDimensionCheck = microtime(true);
+
         if ($this->isWindows) {
-            // Try to get from environment first
-            $cols = getenv('COLUMNS');
-            if ($cols !== false && is_numeric($cols)) {
-                return (int) $cols;
-            }
-
-            // Try PowerShell
-            $output = shell_exec('powershell -command "$host.UI.RawUI.WindowSize.Width" 2>nul');
-            if ($output !== null && is_numeric(trim($output))) {
-                return (int) trim($output);
-            }
-
-            // Fallback
-            return 120;
+            $this->cachedWidth = $this->getWindowsWidth();
+        } else {
+            $this->cachedWidth = $this->getUnixWidth();
         }
 
-        // Unix-like systems
-        $cols = getenv('COLUMNS');
-        if ($cols !== false && is_numeric($cols)) {
-            return (int) $cols;
+        return $this->cachedWidth;
+    }
+
+    private function getWindowsWidth(): int
+    {
+        // Method 1: MODE command (fastest and most reliable on Windows)
+        $output = shell_exec('mode con 2>nul');
+        if ($output !== null && preg_match('/Columns:\s*(\d+)/i', $output, $matches)) {
+            return (int) $matches[1];
         }
 
+        // Method 2: PowerShell (slower but reliable)
+        $output = shell_exec('powershell -NoProfile -Command "[Console]::WindowWidth" 2>nul');
+        if ($output !== null && is_numeric(trim($output))) {
+            return (int) trim($output);
+        }
+
+        // Fallback
+        return 120;
+    }
+
+    private function getUnixWidth(): int
+    {
+        // Try tput first (most reliable)
         $output = shell_exec('tput cols 2>/dev/null');
         if ($output !== null && is_numeric(trim($output))) {
             return (int) trim($output);
         }
 
+        // Try stty
         $output = shell_exec('stty size 2>/dev/null');
         if ($output !== null && preg_match('/\d+\s+(\d+)/', $output, $matches)) {
             return (int) $matches[1];
+        }
+
+        // Check environment
+        $cols = getenv('COLUMNS');
+        if ($cols !== false && is_numeric($cols)) {
+            return (int) $cols;
         }
 
         return 80;
@@ -151,37 +196,57 @@ class Terminal
      */
     public function getHeight(): int
     {
+        if ($this->cachedHeight !== null && !$this->shouldRefreshDimensions()) {
+            return $this->cachedHeight;
+        }
+
+        $this->lastDimensionCheck = microtime(true);
+
         if ($this->isWindows) {
-            // Try to get from environment first
-            $lines = getenv('LINES');
-            if ($lines !== false && is_numeric($lines)) {
-                return (int) $lines;
-            }
-
-            // Try PowerShell
-            $output = shell_exec('powershell -command "$host.UI.RawUI.WindowSize.Height" 2>nul');
-            if ($output !== null && is_numeric(trim($output))) {
-                return (int) trim($output);
-            }
-
-            // Fallback
-            return 30;
+            $this->cachedHeight = $this->getWindowsHeight();
+        } else {
+            $this->cachedHeight = $this->getUnixHeight();
         }
 
-        // Unix-like systems
-        $lines = getenv('LINES');
-        if ($lines !== false && is_numeric($lines)) {
-            return (int) $lines;
+        return $this->cachedHeight;
+    }
+
+    private function getWindowsHeight(): int
+    {
+        // Method 1: MODE command (fastest)
+        $output = shell_exec('mode con 2>nul');
+        if ($output !== null && preg_match('/Lines:\s*(\d+)/i', $output, $matches)) {
+            return (int) $matches[1];
         }
 
+        // Method 2: PowerShell
+        $output = shell_exec('powershell -NoProfile -Command "[Console]::WindowHeight" 2>nul');
+        if ($output !== null && is_numeric(trim($output))) {
+            return (int) trim($output);
+        }
+
+        // Fallback
+        return 30;
+    }
+
+    private function getUnixHeight(): int
+    {
+        // Try tput first
         $output = shell_exec('tput lines 2>/dev/null');
         if ($output !== null && is_numeric(trim($output))) {
             return (int) trim($output);
         }
 
+        // Try stty
         $output = shell_exec('stty size 2>/dev/null');
         if ($output !== null && preg_match('/(\d+)\s+\d+/', $output, $matches)) {
             return (int) $matches[1];
+        }
+
+        // Check environment
+        $lines = getenv('LINES');
+        if ($lines !== false && is_numeric($lines)) {
+            return (int) $lines;
         }
 
         return 24;

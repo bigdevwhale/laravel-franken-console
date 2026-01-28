@@ -58,15 +58,20 @@ class Dashboard
     {
         $width = $this->terminal->getWidth();
         $height = $this->terminal->getHeight();
+        
+        // Ensure sane minimum dimensions
+        $width = max(40, min(500, $width));
+        $height = max(10, min(200, $height));
 
         $lines = [];
 
-        // Render header/tab bar (skip separator line for very short terminals)
-        $lines[] = $this->renderTabBar($width, $height);
+        // Line 0: Tab bar (always first)
+        $tabBar = $this->renderTabBar($width, $height);
+        $lines[] = $tabBar;
         
-        // Render separator only if we have room
+        // Line 1: Separator (only if we have room)
         if ($height >= 10) {
-            $lines[] = $this->theme->styled(str_repeat('─', $width), 'muted');
+            $lines[] = $this->theme->dim(str_repeat('─', $width));
         }
 
         // Get current panel and update its dimensions
@@ -94,11 +99,14 @@ class Dashboard
         while (count($lines) < $targetHeight) {
             $lines[] = '';
         }
+        
+        // Trim to target height to prevent overflow
+        $lines = array_slice($lines, 0, $targetHeight);
 
-        // Clear each line to full width to prevent artifacts
+        // Build output - clear each line to full width to prevent artifacts
         $output = '';
         foreach ($lines as $line) {
-            // Strip visible length for padding calculation
+            // Calculate visible length (strip ANSI codes) for proper padding
             $visibleLen = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $line));
             $padding = max(0, $width - $visibleLen);
             $output .= $line . str_repeat(' ', $padding) . "\033[K\n";
@@ -117,28 +125,29 @@ class Dashboard
         $isVeryCompact = $width < 70;
         $isTiny = $width < 50;
         
-        // For very small terminals, show only numbers for inactive tabs
+        // Tab labels adapt to available width
         $tabLabels = [
-            'overview' => $isTiny ? 'O' : ($isVeryCompact ? 'Ovw' : ($isCompact ? 'Over' : 'Overview')),
-            'queues' => $isTiny ? 'Q' : ($isVeryCompact ? 'Que' : ($isCompact ? 'Ques' : 'Queues')),
-            'jobs' => $isTiny ? 'J' : ($isVeryCompact ? 'Job' : 'Jobs'),
-            'logs' => $isTiny ? 'L' : 'Logs',
-            'cache' => $isTiny ? 'C' : ($isVeryCompact ? 'Cch' : 'Cache'),
-            'scheduler' => $isTiny ? 'S' : ($isVeryCompact ? 'Sch' : ($isCompact ? 'Sched' : 'Scheduler')),
-            'metrics' => $isTiny ? 'M' : ($isVeryCompact ? 'Met' : ($isCompact ? 'Metr' : 'Metrics')),
-            'shell' => $isTiny ? 'X' : ($isVeryCompact ? 'Shl' : 'Shell'),
-            'settings' => $isTiny ? '=' : ($isVeryCompact ? 'Set' : ($isCompact ? 'Sett' : 'Settings')),
+            'overview' => $isTiny ? '1' : ($isVeryCompact ? 'Ovw' : ($isCompact ? 'Over' : 'Overview')),
+            'queues' => $isTiny ? '2' : ($isVeryCompact ? 'Que' : ($isCompact ? 'Ques' : 'Queues')),
+            'jobs' => $isTiny ? '3' : ($isVeryCompact ? 'Job' : 'Jobs'),
+            'logs' => $isTiny ? '4' : 'Logs',
+            'cache' => $isTiny ? '5' : ($isVeryCompact ? 'Cch' : 'Cache'),
+            'scheduler' => $isTiny ? '6' : ($isVeryCompact ? 'Sch' : ($isCompact ? 'Sched' : 'Scheduler')),
+            'metrics' => $isTiny ? '7' : ($isVeryCompact ? 'Met' : ($isCompact ? 'Metr' : 'Metrics')),
+            'shell' => $isTiny ? '8' : ($isVeryCompact ? 'Shl' : 'Shell'),
+            'settings' => $isTiny ? '9' : ($isVeryCompact ? 'Set' : ($isCompact ? 'Sett' : 'Settings')),
         ];
 
+        // Start output - always start at column 0
         $output = '';
         
         // App title/branding - adapt to width
         if ($width >= 80) {
-            $output .= $this->theme->bold($this->theme->styled(' ⚡FRANKEN ', 'primary'));
-            $output .= $this->theme->styled('│', 'muted');
+            $output .= "\033[1;36m ⚡FRANKEN \033[0m"; // Bold cyan
+            $output .= "\033[90m│\033[0m";
         } elseif ($width >= 50) {
-            $output .= $this->theme->styled('⚡', 'primary');
-            $output .= $this->theme->styled('│', 'muted');
+            $output .= "\033[36m⚡\033[0m";
+            $output .= "\033[90m│\033[0m";
         }
         // No branding for tiny terminals
         
@@ -148,14 +157,15 @@ class Dashboard
             $isActive = ($name === $this->currentPanel);
             
             if ($isActive) {
-                // Active tab: inverse style - highly visible
-                $output .= "\033[7m\033[1m" . $tabNum . ':' . $label . "\033[0m ";
+                // Active tab: inverse video with bold - very visible
+                // Use raw ANSI for reliability: inverse + bold + white
+                $output .= " \033[7;1;37m " . ($isTiny ? '' : $tabNum . ':') . $label . " \033[0m";
             } else {
-                // Inactive tab: just number for tiny, number:label otherwise
+                // Inactive tab: dim text
                 if ($isTiny) {
-                    $output .= $this->theme->dim((string)$tabNum) . ' ';
+                    $output .= " \033[90m" . $tabNum . "\033[0m";
                 } else {
-                    $output .= $this->theme->dim($tabNum . ':' . $label) . ' ';
+                    $output .= " \033[90m" . $tabNum . ':' . $label . "\033[0m";
                 }
             }
             $tabNum++;
