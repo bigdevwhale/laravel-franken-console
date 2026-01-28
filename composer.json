@@ -1,12 +1,12 @@
 {
-    "name": "franken-php/console",
+    "name": "bigdevwhale/laravel-franken-console",
     "description": "A high-end TUI dashboard for Laravel",
     "type": "library",
     "license": "MIT",
     "authors": [
         {
-            "name": "Franken Console Team",
-            "email": "team@franken-php.com"
+            "name": "Marat Badykov",
+            "email": "marat.badykov.555@gmail.com"
         }
     ],
     "require": {

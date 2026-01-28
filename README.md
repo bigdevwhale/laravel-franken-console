@@ -5,7 +5,7 @@ A high-end TUI dashboard for Laravel.
 ## Installation
 
 ```bash
-composer require --dev franken-php/console
+composer require --dev bigdevwhaler/laravel-franken-console
 ```
 
 # Franken Console 🧟‍♂️🚀
@@ -35,7 +35,7 @@ Quick install
 Clone or add as a dev dependency:
 
 ```bash
-git clone https://github.com/your-organization/franken-console.git
+git clone https://github.com/bigdevwhale/laravel-franken-console
 cd franken-console
 composer install
 ```
@@ -133,5 +133,3 @@ License
 MIT — see LICENSE for details.
 
 ---
-
-Want this README tuned to a different tone (tutorial, enterprise, or marketing)? Tell me which tone and I’ll adapt it. ✅
