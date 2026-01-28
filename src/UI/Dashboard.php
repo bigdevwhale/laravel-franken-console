@@ -59,17 +59,15 @@ class Dashboard
         $width = $this->terminal->getWidth();
         $height = $this->terminal->getHeight();
 
-        // Calculate available height for panel content
-        // Reserve: 1 for tab bar, 1 for separator, 2 for hotkey bar
-        $panelHeight = max(5, $height - 4);
-
         $lines = [];
 
-        // Render header/tab bar
-        $lines[] = $this->renderTabBar($width);
+        // Render header/tab bar (skip separator line for very short terminals)
+        $lines[] = $this->renderTabBar($width, $height);
         
-        // Render separator
-        $lines[] = $this->theme->styled(str_repeat('─', $width), 'muted');
+        // Render separator only if we have room
+        if ($height >= 10) {
+            $lines[] = $this->theme->styled(str_repeat('─', $width), 'muted');
+        }
 
         // Get current panel and update its dimensions
         $panel = $this->panels[$this->currentPanel] ?? $this->panels['overview'];
@@ -79,29 +77,23 @@ class Dashboard
             $panel->setTerminalWidth($width);
         }
         if (method_exists($panel, 'setTerminalHeight')) {
-            $panel->setTerminalHeight($panelHeight);
+            $panel->setTerminalHeight($height);
         }
         
         // Render panel content and split into lines
         $panelContent = $panel->render();
         $panelLines = explode("\n", $panelContent);
-        
-        // IMPORTANT: Limit panel content to available height to prevent overflow
-        $panelLines = array_slice($panelLines, 0, $panelHeight);
-        
         foreach ($panelLines as $line) {
             $lines[] = $line;
         }
 
         // Pad to fill screen height, leaving room for hotkey bar
-        $targetHeight = max(0, $height - 2); // Leave 2 lines for hotkey bar
+        $hotkeyBarHeight = $height < 15 ? 0 : 2;
+        $targetHeight = max(0, $height - $hotkeyBarHeight);
         
         while (count($lines) < $targetHeight) {
             $lines[] = '';
         }
-        
-        // Trim to exact height if somehow over
-        $lines = array_slice($lines, 0, $targetHeight);
 
         // Clear each line to full width to prevent artifacts
         $output = '';
@@ -113,38 +105,42 @@ class Dashboard
         }
 
         // Render hotkey bar at bottom
-        $output .= $this->renderHotkeyBar($width);
+        $output .= $this->renderHotkeyBar($width, $height);
 
         return $output;
     }
 
-    private function renderTabBar(int $width): string
+    private function renderTabBar(int $width, int $height = 24): string
     {
         // Determine if we need compact mode based on terminal width
         $isCompact = $width < 100;
         $isVeryCompact = $width < 70;
+        $isTiny = $width < 50;
         
+        // For very small terminals, show only numbers for inactive tabs
         $tabLabels = [
-            'overview' => $isVeryCompact ? 'Ovw' : ($isCompact ? 'Over' : 'Overview'),
-            'queues' => $isVeryCompact ? 'Que' : ($isCompact ? 'Ques' : 'Queues'),
-            'jobs' => $isVeryCompact ? 'Job' : 'Jobs',
-            'logs' => 'Logs',
-            'cache' => $isVeryCompact ? 'Cch' : 'Cache',
-            'scheduler' => $isVeryCompact ? 'Sch' : ($isCompact ? 'Sched' : 'Scheduler'),
-            'metrics' => $isVeryCompact ? 'Met' : ($isCompact ? 'Metr' : 'Metrics'),
-            'shell' => $isVeryCompact ? 'Shl' : 'Shell',
-            'settings' => $isVeryCompact ? 'Set' : ($isCompact ? 'Sett' : 'Settings'),
+            'overview' => $isTiny ? 'O' : ($isVeryCompact ? 'Ovw' : ($isCompact ? 'Over' : 'Overview')),
+            'queues' => $isTiny ? 'Q' : ($isVeryCompact ? 'Que' : ($isCompact ? 'Ques' : 'Queues')),
+            'jobs' => $isTiny ? 'J' : ($isVeryCompact ? 'Job' : 'Jobs'),
+            'logs' => $isTiny ? 'L' : 'Logs',
+            'cache' => $isTiny ? 'C' : ($isVeryCompact ? 'Cch' : 'Cache'),
+            'scheduler' => $isTiny ? 'S' : ($isVeryCompact ? 'Sch' : ($isCompact ? 'Sched' : 'Scheduler')),
+            'metrics' => $isTiny ? 'M' : ($isVeryCompact ? 'Met' : ($isCompact ? 'Metr' : 'Metrics')),
+            'shell' => $isTiny ? 'X' : ($isVeryCompact ? 'Shl' : 'Shell'),
+            'settings' => $isTiny ? '=' : ($isVeryCompact ? 'Set' : ($isCompact ? 'Sett' : 'Settings')),
         ];
 
         $output = '';
         
-        // App title/branding - compact on small terminals
+        // App title/branding - adapt to width
         if ($width >= 80) {
             $output .= $this->theme->bold($this->theme->styled(' ⚡FRANKEN ', 'primary'));
-        } else {
-            $output .= $this->theme->styled(' ⚡ ', 'primary');
+            $output .= $this->theme->styled('│', 'muted');
+        } elseif ($width >= 50) {
+            $output .= $this->theme->styled('⚡', 'primary');
+            $output .= $this->theme->styled('│', 'muted');
         }
-        $output .= $this->theme->styled('│', 'muted');
+        // No branding for tiny terminals
         
         $tabNum = 1;
         foreach ($this->panelNames as $name) {
@@ -153,10 +149,14 @@ class Dashboard
             
             if ($isActive) {
                 // Active tab: inverse style - highly visible
-                $output .= "\033[7m\033[1m " . $tabNum . ':' . $label . " \033[0m";
+                $output .= "\033[7m\033[1m" . $tabNum . ':' . $label . "\033[0m ";
             } else {
-                // Inactive tab: just number, dimmed
-                $output .= $this->theme->dim(' ' . $tabNum . ':') . $this->theme->dim($label);
+                // Inactive tab: just number for tiny, number:label otherwise
+                if ($isTiny) {
+                    $output .= $this->theme->dim((string)$tabNum) . ' ';
+                } else {
+                    $output .= $this->theme->dim($tabNum . ':' . $label) . ' ';
+                }
             }
             $tabNum++;
         }
@@ -164,12 +164,26 @@ class Dashboard
         return $output;
     }
 
-    private function renderHotkeyBar(int $width): string
+    private function renderHotkeyBar(int $width, int $height = 24): string
     {
+        // Skip hotkey bar if terminal is very short
+        if ($height < 15) {
+            return '';
+        }
+        
         $output = $this->theme->styled(str_repeat('─', $width), 'muted') . "\n";
         
         // Build hotkey display - adapt to width
         $isCompact = $width < 80;
+        $isTiny = $width < 50;
+        
+        if ($isTiny) {
+            // Minimal hotkeys for tiny terminals
+            $output .= $this->theme->styled('q', 'secondary') . $this->theme->dim('Quit ');
+            $output .= $this->theme->styled('←→', 'secondary') . $this->theme->dim('Tab ');
+            $output .= $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Nav');
+            return $output;
+        }
         
         $hotkeys = [
             ['q', $isCompact ? 'Quit' : 'Quit'],
@@ -282,22 +296,6 @@ class Dashboard
         if (method_exists($panel, 'scrollToBottom')) {
             $panel->scrollToBottom();
         }
-    }
-
-    public function handleEnter(): void
-    {
-        $panel = $this->panels[$this->currentPanel];
-        
-        // Handle enter based on panel type
-        if ($this->currentPanel === 'jobs' && method_exists($panel, 'viewDetails')) {
-            $panel->viewDetails();
-        } elseif ($this->currentPanel === 'logs' && method_exists($panel, 'exitSearchMode')) {
-            // In logs, Enter confirms search
-            if ($this->isInSearchMode()) {
-                $panel->exitSearchMode();
-            }
-        }
-        // Add more panel-specific Enter handling as needed
     }
 
     public function enterSearchMode(): void

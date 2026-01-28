@@ -10,115 +10,139 @@ class SettingsPanel
 {
     private Theme $theme;
     private int $selectedSetting = 0;
+    private int $terminalHeight = 24;
+    private int $terminalWidth = 80;
 
     public function __construct()
     {
         $this->theme = new Theme();
     }
 
+    public function setTerminalHeight(int $height): void
+    {
+        $this->terminalHeight = $height;
+    }
+
+    public function setTerminalWidth(int $width): void
+    {
+        $this->terminalWidth = $width;
+    }
+
     public function render(): string
     {
+        $width = $this->terminalWidth;
+        $height = $this->terminalHeight;
+        $lineWidth = max(40, $width - 4);
+        
         $config = config('franken', []);
         
         $output = "\n";
-        $output .= $this->theme->styled("  Settings\n", 'secondary');
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────────────────\n", 'muted');
-
-        // Current settings
-        $output .= "\n";
-        $output .= $this->theme->bold("  Current Configuration\n");
-        $output .= "\n";
+        $output .= '  ' . $this->theme->bold($this->theme->styled('SETTINGS', 'secondary')) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output .= '  ' . $this->theme->bold('Current Configuration') . "\n";
 
         $settings = [
-            ['Polling Interval', ($config['polling_interval'] ?? 2) . ' seconds', 'How often to refresh data'],
-            ['Theme', $config['theme']['name'] ?? 'dark', 'Color theme for the UI'],
-            ['Log Levels', implode(', ', array_slice($config['log_levels'] ?? [], 0, 4)) . '...', 'Log levels to display'],
+            ['Polling Interval', ($config['polling_interval'] ?? 2) . 's', 'Refresh interval'],
+            ['Theme', $config['theme']['name'] ?? 'dark', 'UI theme'],
+            ['Log Levels', count($config['log_levels'] ?? []) . ' levels', 'Active levels'],
         ];
 
         foreach ($settings as $i => $setting) {
-            $marker = ($i === $this->selectedSetting) ? $this->theme->styled('▸ ', 'primary') : '  ';
+            $marker = ($i === $this->selectedSetting) ? $this->theme->styled('▸', 'primary') : ' ';
             $name = ($i === $this->selectedSetting) ? 
                 $this->theme->styled($setting[0], 'primary') : 
                 $setting[0];
             
-            $output .= sprintf(
-                "%s%-25s %s\n",
-                $marker,
-                $name . ':',
-                $this->theme->styled($setting[1], 'info')
-            );
-            $output .= sprintf("  %-25s %s\n", '', $this->theme->dim($setting[2]));
+            if ($width >= 80) {
+                $output .= sprintf(" %s %-20s %s  %s\n",
+                    $marker, $name . ':', $this->theme->styled($setting[1], 'info'), $this->theme->dim($setting[2])
+                );
+            } else {
+                $output .= sprintf(" %s %-16s %s\n",
+                    $marker, $name . ':', $this->theme->styled($setting[1], 'info')
+                );
+            }
         }
 
-        $output .= "\n";
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────────────────\n", 'muted');
-        $output .= $this->theme->bold("  Keybindings\n");
-        $output .= "\n";
+        // Keybindings (only if there's room)
+        if ($height >= 18) {
+            $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+            $output .= '  ' . $this->theme->bold('Keybindings') . "\n";
 
-        $keybindings = $config['keybindings'] ?? [];
-        $displayKeys = [
-            ['quit', 'Quit application'],
-            ['refresh', 'Refresh current panel'],
-            ['search_logs', 'Search in logs'],
-            ['navigate_up', 'Navigate up'],
-            ['navigate_down', 'Navigate down'],
-            ['clear_cache', 'Clear cache'],
-            ['restart_worker', 'Restart queue worker'],
-        ];
+            $keybindings = $config['keybindings'] ?? [];
+            $displayKeys = [
+                ['quit', 'Quit', 'q'],
+                ['refresh', 'Refresh', 'r'],
+                ['search_logs', 'Search', '/'],
+                ['navigate_up', 'Up', '↑'],
+                ['navigate_down', 'Down', '↓'],
+            ];
 
-        foreach ($displayKeys as $keyInfo) {
-            $key = $keyInfo[0];
-            $desc = $keyInfo[1];
-            $binding = $keybindings[$key] ?? 'N/A';
+            if ($width >= 70) {
+                // Horizontal layout
+                $output .= '  ';
+                foreach ($displayKeys as $keyInfo) {
+                    $binding = $keybindings[$keyInfo[0]] ?? $keyInfo[2];
+                    $output .= $this->theme->styled('[' . $binding . ']', 'primary') . ' ' . $this->theme->dim($keyInfo[1]) . '  ';
+                }
+                $output .= "\n";
+            } else {
+                // Compact grid
+                $perRow = 3;
+                $count = 0;
+                $output .= '  ';
+                foreach ($displayKeys as $keyInfo) {
+                    $binding = $keybindings[$keyInfo[0]] ?? $keyInfo[2];
+                    $output .= $this->theme->styled('[' . $binding . ']', 'primary') . $this->theme->dim($keyInfo[1]) . ' ';
+                    $count++;
+                    if ($count % $perRow === 0) {
+                        $output .= "\n  ";
+                    }
+                }
+                $output .= "\n";
+            }
+        }
+
+        // Panel shortcuts (only if there's room)
+        if ($height >= 22) {
+            $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+            $output .= '  ' . $this->theme->bold('Panel Shortcuts') . "\n";
+
+            $panels = [
+                ['1', 'Overview'], ['2', 'Queues'], ['3', 'Jobs'], ['4', 'Logs'], ['5', 'Cache'],
+                ['6', 'Scheduler'], ['7', 'Metrics'], ['8', 'Shell'], ['9', 'Settings'],
+            ];
+
+            if ($width >= 80) {
+                $output .= '  ';
+                foreach ($panels as $panel) {
+                    $output .= $this->theme->styled('[' . $panel[0] . ']', 'primary') . ' ' . $panel[1] . '  ';
+                }
+                $output .= "\n";
+            } else {
+                $output .= '  ';
+                foreach ($panels as $panel) {
+                    $output .= $this->theme->styled($panel[0], 'primary') . ':' . substr($panel[1], 0, 3) . ' ';
+                }
+                $output .= "\n";
+            }
+        }
+
+        // About section (only if there's room)
+        if ($height >= 26) {
+            $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+            $output .= '  ' . $this->theme->bold('About') . "\n";
             
-            $output .= sprintf(
-                "  %-20s %s  %s\n",
-                $desc,
-                $this->theme->styled('[' . $binding . ']', 'primary'),
-                ''
-            );
+            $output .= '  ' . $this->theme->styled('Franken-Console', 'primary') . ' v1.0.0';
+            $output .= ' | PHP ' . PHP_VERSION;
+            
+            try {
+                $output .= ' | Laravel ' . app()->version();
+            } catch (\Exception $e) {
+                // Ignore
+            }
+            $output .= "\n";
         }
-
-        // Tab switching
-        $output .= "\n";
-        $output .= $this->theme->bold("  Panel Shortcuts\n");
-        $output .= "\n";
-
-        $panels = [
-            ['1', 'Overview'],
-            ['2', 'Queues'],
-            ['3', 'Jobs'],
-            ['4', 'Logs'],
-            ['5', 'Cache'],
-            ['6', 'Scheduler'],
-            ['7', 'Metrics'],
-            ['8', 'Shell'],
-            ['9', 'Settings'],
-        ];
-
-        $panelStr = '';
-        foreach ($panels as $panel) {
-            $panelStr .= $this->theme->styled('[' . $panel[0] . ']', 'primary') . ' ' . $panel[1] . '  ';
-        }
-        $output .= "  " . $panelStr . "\n";
-
-        $output .= "\n";
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────────────────\n", 'muted');
-        $output .= $this->theme->bold("  About\n");
-        $output .= "\n";
-        
-        $output .= "  " . $this->theme->styled("Franken-Console", 'primary') . " - A high-end TUI dashboard for Laravel\n";
-        $output .= "  " . $this->theme->dim("Version: 1.0.0") . "\n";
-        $output .= "  " . $this->theme->dim("PHP: " . PHP_VERSION) . "\n";
-        
-        try {
-            $output .= "  " . $this->theme->dim("Laravel: " . app()->version()) . "\n";
-        } catch (\Exception $e) {
-            // Ignore
-        }
-
-        $output .= "\n";
-        $output .= $this->theme->dim("  Configuration file: config/franken.php\n");
 
         return $output;
     }

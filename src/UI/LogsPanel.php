@@ -115,36 +115,46 @@ class LogsPanel
             }
         }
 
-        // Status bar
-        $output .= "\n";
+        // Status bar with page numbers
         $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
         
         $totalLogs = count($this->filteredLogs);
-        $showing = min($end - $start, $totalLogs);
+        $visibleLines = $this->getVisibleLines();
+        $totalPages = max(1, (int)ceil($totalLogs / $visibleLines));
+        $currentPage = (int)floor($this->scrollOffset / max(1, $visibleLines)) + 1;
         
-        $statusParts = [];
-        $statusParts[] = $this->theme->dim("Showing ") . $this->theme->styled((string)$showing, 'info') . 
-                        $this->theme->dim("/") . $this->theme->styled((string)$totalLogs, 'info');
+        // Page info
+        $pageInfo = $this->theme->dim('Page ') . 
+                   $this->theme->styled((string)$currentPage, 'info') . 
+                   $this->theme->dim('/') . 
+                   $this->theme->styled((string)$totalPages, 'info');
         
+        $countInfo = $this->theme->dim(' (') . 
+                    $this->theme->styled((string)$totalLogs, 'info') . 
+                    $this->theme->dim(' logs)');
+        
+        $scrollIndicators = '';
         if ($this->scrollOffset > 0) {
-            $statusParts[] = $this->theme->dim('↑');
+            $scrollIndicators .= ' ' . $this->theme->dim('↑');
         }
         if ($end < count($this->filteredLogs)) {
-            $statusParts[] = $this->theme->dim('↓');
+            $scrollIndicators .= ' ' . $this->theme->dim('↓');
         }
 
-        $output .= '  ' . implode(' ', $statusParts) . "\n";
+        $output .= '  ' . $pageInfo . $countInfo . $scrollIndicators . "\n";
         
-        // Responsive help line
-        if ($width >= 80) {
-            $output .= '  ' .
-                   $this->theme->styled('/', 'secondary') . $this->theme->dim('Search ') .
-                   $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Nav ') .
-                   $this->theme->styled('PgUp/Dn', 'secondary') . $this->theme->dim('Page') . "\n";
-        } else {
-            $output .= '  ' .
-                   $this->theme->styled('/', 'secondary') . $this->theme->dim('Srch ') .
-                   $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Nav') . "\n";
+        // Responsive help line (only if there's room)
+        if ($this->terminalHeight >= 15) {
+            if ($width >= 80) {
+                $output .= '  ' .
+                       $this->theme->styled('/', 'secondary') . $this->theme->dim('Search ') .
+                       $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Nav ') .
+                       $this->theme->styled('PgUp/Dn', 'secondary') . $this->theme->dim('Page') . "\n";
+            } else {
+                $output .= '  ' .
+                       $this->theme->styled('/', 'secondary') . $this->theme->dim('Srch ') .
+                       $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Nav') . "\n";
+            }
         }
 
         return $output;

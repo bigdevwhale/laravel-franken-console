@@ -11,6 +11,9 @@ class CacheConfigPanel
 {
     private Theme $theme;
     private int $selectedAction = 0;
+    private int $scrollOffset = 0;
+    private int $terminalHeight = 24;
+    private int $terminalWidth = 80;
     private array $actions = [
         ['key' => 'cache:clear', 'name' => 'Clear Application Cache', 'desc' => 'Flush the application cache'],
         ['key' => 'config:clear', 'name' => 'Clear Config Cache', 'desc' => 'Remove the configuration cache file'],
@@ -24,53 +27,100 @@ class CacheConfigPanel
         $this->theme = new Theme();
     }
 
+    public function setTerminalHeight(int $height): void
+    {
+        $this->terminalHeight = $height;
+    }
+
+    public function setTerminalWidth(int $width): void
+    {
+        $this->terminalWidth = $width;
+    }
+
     public function render(): string
     {
+        $width = $this->terminalWidth;
+        $height = $this->terminalHeight;
+        $lineWidth = max(40, $width - 4);
+        
         $stats = $this->adapter->getCacheStats();
         
         $output = "\n";
-        $output .= $this->theme->styled("  Cache Configuration\n", 'secondary');
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────\n", 'muted');
+        $output .= '  ' . $this->theme->bold($this->theme->styled('CACHE CONFIGURATION', 'secondary')) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
-        // Current cache info
-        $output .= "\n";
-        $output .= $this->theme->bold("  Current Configuration\n");
-        $output .= sprintf("  %-20s %s\n", 'Cache Driver:', $this->theme->styled($stats['driver'], 'info'));
-        $output .= sprintf("  %-20s %s\n", 'Cache Size:', $this->theme->styled($stats['size'], 'info'));
-        $output .= sprintf("  %-20s %s\n", 'Status:', $this->theme->styled($stats['status'] ?? 'active', 'success'));
-
-        // Show additional config based on driver
-        try {
-            $cacheConfig = config("cache.stores.{$stats['driver']}", []);
-            if (!empty($cacheConfig)) {
-                $output .= "\n";
-                $output .= $this->theme->bold("  Driver Settings\n");
-                foreach ($cacheConfig as $key => $value) {
-                    if (is_string($value) || is_numeric($value)) {
-                        $output .= sprintf("  %-20s %s\n", ucfirst($key) . ':', $this->theme->dim((string)$value));
-                    }
-                }
-            }
-        } catch (\Exception $e) {
-            // Ignore
+        // Current cache info (compact if limited height)
+        if ($width >= 80) {
+            $output .= sprintf("  %-14s %s   %-10s %s   %-10s %s\n",
+                'Driver:',
+                $this->theme->styled($stats['driver'], 'info'),
+                'Size:',
+                $this->theme->styled($stats['size'], 'info'),
+                'Status:',
+                $this->theme->styled($stats['status'] ?? 'active', 'success')
+            );
+        } else {
+            $output .= sprintf("  %-12s %s | %-8s %s\n",
+                'Driver:',
+                $this->theme->styled($stats['driver'], 'info'),
+                'Size:',
+                $this->theme->styled($stats['size'], 'info')
+            );
         }
 
-        $output .= "\n";
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────\n", 'muted');
-        $output .= $this->theme->bold("  Available Actions\n");
-        $output .= "\n";
+        // Driver settings (only if there's room)
+        if ($height >= 20) {
+            try {
+                $cacheConfig = config("cache.stores.{$stats['driver']}", []);
+                if (!empty($cacheConfig)) {
+                    $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+                    $output .= '  ' . $this->theme->bold('Driver Settings') . "\n";
+                    $count = 0;
+                    foreach ($cacheConfig as $key => $value) {
+                        if ((is_string($value) || is_numeric($value)) && $count < 3) {
+                            $output .= sprintf("  %-14s %s\n", ucfirst($key) . ':', $this->theme->dim((string)$value));
+                            $count++;
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // Ignore
+            }
+        }
+
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output .= '  ' . $this->theme->bold('Available Actions') . "\n";
 
         foreach ($this->actions as $i => $action) {
-            $marker = ($i === $this->selectedAction) ? $this->theme->styled('▸ ', 'primary') : '  ';
+            $marker = ($i === $this->selectedAction) ? $this->theme->styled('▸', 'primary') : ' ';
             $name = ($i === $this->selectedAction) ? 
                 $this->theme->styled($action['name'], 'primary') : 
                 $action['name'];
             
-            $output .= sprintf("%s%-35s %s\n", $marker, $name, $this->theme->dim($action['desc']));
+            if ($width >= 80) {
+                $output .= sprintf(" %s %-30s %s\n", $marker, $name, $this->theme->dim($action['desc']));
+            } else {
+                $shortName = strlen($action['name']) > 22 ? substr($action['name'], 0, 19) . '...' : $action['name'];
+                $name = ($i === $this->selectedAction) ? 
+                    $this->theme->styled($shortName, 'primary') : 
+                    $shortName;
+                $output .= sprintf(" %s %s\n", $marker, $name);
+            }
         }
 
-        $output .= "\n";
-        $output .= $this->theme->dim("  Press c to clear cache, ↑/↓ to select action, Enter to execute\n");
+        // Help line (only if there's room)
+        if ($height >= 15) {
+            $output .= "\n";
+            if ($width >= 70) {
+                $output .= '  ' . $this->theme->styled('c', 'secondary') . $this->theme->dim(' Clear  ') .
+                       $this->theme->styled('↑↓', 'secondary') . $this->theme->dim(' Select  ') .
+                       $this->theme->styled('⏎', 'secondary') . $this->theme->dim(' Execute') . "\n";
+            } else {
+                $output .= '  ' . $this->theme->styled('c', 'secondary') . $this->theme->dim('Clear ') .
+                       $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Sel ') .
+                       $this->theme->styled('⏎', 'secondary') . $this->theme->dim('Run') . "\n";
+            }
+        }
 
         return $output;
     }

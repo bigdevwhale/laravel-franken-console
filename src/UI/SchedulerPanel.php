@@ -10,75 +10,163 @@ class SchedulerPanel
 {
     private Theme $theme;
     private int $selectedIndex = 0;
+    private int $scrollOffset = 0;
     private array $scheduledTasks = [];
+    private int $terminalHeight = 24;
+    private int $terminalWidth = 80;
 
     public function __construct()
     {
         $this->theme = new Theme();
     }
 
+    public function setTerminalHeight(int $height): void
+    {
+        $this->terminalHeight = $height;
+    }
+
+    public function setTerminalWidth(int $width): void
+    {
+        $this->terminalWidth = $width;
+    }
+
+    private function getVisibleTaskCount(): int
+    {
+        // Reserve lines for headers, status section, help
+        return max(2, $this->terminalHeight - 16);
+    }
+
     public function render(): string
     {
+        $width = $this->terminalWidth;
+        $height = $this->terminalHeight;
+        $lineWidth = max(40, $width - 4);
+        
         $this->scheduledTasks = $this->getScheduledTasks();
         
         $output = "\n";
-        $output .= $this->theme->styled("  Task Scheduler\n", 'secondary');
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────────────────\n", 'muted');
+        $output .= '  ' . $this->theme->bold($this->theme->styled('TASK SCHEDULER', 'secondary')) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
-        // Status
-        $output .= "\n";
-        $output .= $this->theme->bold("  Scheduler Status\n");
-        
+        // Status section (compact if height is limited)
         $isRunning = $this->isSchedulerRunning();
         $statusIcon = $isRunning ? 
             $this->theme->styled('● Running', 'success') : 
             $this->theme->styled('○ Not Running', 'warning');
         
-        $output .= sprintf("  Status: %s\n", $statusIcon);
-        
-        $lastRun = $this->getLastSchedulerRun();
-        $output .= sprintf("  Last Run: %s\n", $this->theme->styled($lastRun, 'info'));
-        
-        $nextRun = $this->getNextSchedulerRun();
-        $output .= sprintf("  Next Run: %s\n", $this->theme->styled($nextRun, 'info'));
+        if ($height >= 20) {
+            $lastRun = $this->getLastSchedulerRun();
+            $nextRun = $this->getNextSchedulerRun();
+            $output .= sprintf("  Status: %s  |  Last: %s  |  Next: %s\n",
+                $statusIcon,
+                $this->theme->styled($lastRun, 'info'),
+                $this->theme->styled($nextRun, 'info')
+            );
+        } else {
+            $output .= sprintf("  Status: %s\n", $statusIcon);
+        }
 
-        $output .= "\n";
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────────────────\n", 'muted');
-        $output .= $this->theme->bold("  Scheduled Tasks\n");
-        $output .= "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output .= '  ' . $this->theme->bold('Scheduled Tasks') . "\n";
 
-        // Header
-        $output .= sprintf(
-            "  %-40s %-15s %-20s\n",
-            $this->theme->bold('Command'),
-            $this->theme->bold('Schedule'),
-            $this->theme->bold('Next Due')
-        );
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────────────────\n", 'muted');
+        // Responsive header
+        if ($width >= 90) {
+            $output .= sprintf("  %-40s %-18s %-20s\n",
+                $this->theme->dim('COMMAND'),
+                $this->theme->dim('SCHEDULE'),
+                $this->theme->dim('NEXT DUE')
+            );
+        } elseif ($width >= 60) {
+            $output .= sprintf("  %-28s %-14s %-16s\n",
+                $this->theme->dim('COMMAND'),
+                $this->theme->dim('SCHEDULE'),
+                $this->theme->dim('NEXT DUE')
+            );
+        } else {
+            $output .= sprintf("  %-20s %-12s\n",
+                $this->theme->dim('COMMAND'),
+                $this->theme->dim('SCHEDULE')
+            );
+        }
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         if (empty($this->scheduledTasks)) {
-            $output .= $this->theme->dim("  No scheduled tasks found\n");
+            $output .= '  ' . $this->theme->dim('No scheduled tasks found') . "\n";
         } else {
-            foreach ($this->scheduledTasks as $i => $task) {
-                $marker = ($i === $this->selectedIndex) ? $this->theme->styled('▸ ', 'primary') : '  ';
+            $visibleCount = $this->getVisibleTaskCount();
+            $start = $this->scrollOffset;
+            $end = min($start + $visibleCount, count($this->scheduledTasks));
+            $totalPages = max(1, (int)ceil(count($this->scheduledTasks) / $visibleCount));
+            $currentPage = (int)floor($this->scrollOffset / max(1, $visibleCount)) + 1;
+            
+            for ($i = $start; $i < $end; $i++) {
+                $task = $this->scheduledTasks[$i];
+                $isSelected = ($i === $this->selectedIndex);
+                $marker = $isSelected ? $this->theme->styled('▸', 'primary') : ' ';
                 
                 $command = $task['command'];
-                if (strlen($command) > 38) {
-                    $command = substr($command, 0, 35) . '...';
-                }
 
-                $output .= sprintf(
-                    "%s%-40s %-15s %-20s\n",
-                    $marker,
-                    $command,
-                    $this->theme->dim($task['schedule']),
-                    $this->theme->styled($task['next_due'], 'info')
-                );
+                if ($width >= 90) {
+                    if (strlen($command) > 38) {
+                        $command = substr($command, 0, 35) . '...';
+                    }
+                    $cmdDisplay = $isSelected ? $this->theme->styled($command, 'primary') : $command;
+                    $output .= sprintf("%s %-40s %-18s %-20s\n",
+                        $marker,
+                        $cmdDisplay,
+                        $this->theme->dim($task['schedule']),
+                        $this->theme->styled($task['next_due'], 'info')
+                    );
+                } elseif ($width >= 60) {
+                    if (strlen($command) > 26) {
+                        $command = substr($command, 0, 23) . '...';
+                    }
+                    $cmdDisplay = $isSelected ? $this->theme->styled($command, 'primary') : $command;
+                    $output .= sprintf("%s %-28s %-14s %-16s\n",
+                        $marker,
+                        $cmdDisplay,
+                        $this->theme->dim(substr($task['schedule'], 0, 12)),
+                        $this->theme->styled(substr($task['next_due'], 0, 14), 'info')
+                    );
+                } else {
+                    if (strlen($command) > 18) {
+                        $command = substr($command, 0, 15) . '...';
+                    }
+                    $cmdDisplay = $isSelected ? $this->theme->styled($command, 'primary') : $command;
+                    $output .= sprintf("%s %-20s %-12s\n",
+                        $marker,
+                        $cmdDisplay,
+                        $this->theme->dim(substr($task['schedule'], 0, 10))
+                    );
+                }
+            }
+            
+            // Page indicator if there are multiple pages
+            if ($totalPages > 1) {
+                $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+                $pageInfo = $this->theme->dim('Page ') . 
+                           $this->theme->styled((string)$currentPage, 'info') . 
+                           $this->theme->dim('/') . 
+                           $this->theme->styled((string)$totalPages, 'info') .
+                           $this->theme->dim(' (') .
+                           $this->theme->styled((string)count($this->scheduledTasks), 'info') .
+                           $this->theme->dim(' tasks)');
+                $output .= '  ' . $pageInfo . "\n";
             }
         }
 
-        $output .= "\n";
-        $output .= $this->theme->dim("  Use ↑/↓ to navigate, Enter to run task manually\n");
+        // Help line (only if there's room)
+        if ($height >= 15) {
+            $output .= "\n";
+            if ($width >= 60) {
+                $output .= '  ' . $this->theme->dim('Use ') . 
+                       $this->theme->styled('↑↓', 'secondary') . $this->theme->dim(' to navigate, ') .
+                       $this->theme->styled('Enter', 'secondary') . $this->theme->dim(' to run task') . "\n";
+            } else {
+                $output .= '  ' . $this->theme->styled('↑↓', 'secondary') . $this->theme->dim(' Nav  ') .
+                       $this->theme->styled('⏎', 'secondary') . $this->theme->dim(' Run') . "\n";
+            }
+        }
 
         return $output;
     }
@@ -177,6 +265,9 @@ class SchedulerPanel
     {
         if ($this->selectedIndex > 0) {
             $this->selectedIndex--;
+            if ($this->selectedIndex < $this->scrollOffset) {
+                $this->scrollOffset = $this->selectedIndex;
+            }
         }
     }
 
@@ -184,6 +275,30 @@ class SchedulerPanel
     {
         if ($this->selectedIndex < count($this->scheduledTasks) - 1) {
             $this->selectedIndex++;
+            $visibleCount = $this->getVisibleTaskCount();
+            if ($this->selectedIndex >= $this->scrollOffset + $visibleCount) {
+                $this->scrollOffset = $this->selectedIndex - $visibleCount + 1;
+            }
         }
+    }
+
+    public function pageUp(): void
+    {
+        $visibleCount = $this->getVisibleTaskCount();
+        $this->selectedIndex = max(0, $this->selectedIndex - $visibleCount);
+        $this->scrollOffset = max(0, $this->scrollOffset - $visibleCount);
+    }
+
+    public function pageDown(): void
+    {
+        $visibleCount = $this->getVisibleTaskCount();
+        $maxIndex = max(0, count($this->scheduledTasks) - 1);
+        $this->selectedIndex = min($maxIndex, $this->selectedIndex + $visibleCount);
+        $this->scrollOffset = min($this->selectedIndex, $this->scrollOffset + $visibleCount);
+    }
+
+    public function getSelectedTask(): ?array
+    {
+        return $this->scheduledTasks[$this->selectedIndex] ?? null;
     }
 }

@@ -141,31 +141,6 @@ class FrankenCommand extends Command
             return true; // Quit
         }
 
-        // Handle Enter key
-        if ($key === "\n" || $key === "\r") {
-            $this->dashboard->handleEnter();
-            $this->render();
-            return false;
-        }
-
-        // Handle Backspace in search mode
-        if ($key === "\x7f" || $key === "\x08") {
-            if ($this->dashboard->isInSearchMode()) {
-                $this->dashboard->removeSearchChar();
-                $this->render();
-            }
-            return false;
-        }
-
-        // Handle Escape key to exit search mode
-        if ($key === "\x1b" || ord($key) === 27) {
-            if ($this->dashboard->isInSearchMode()) {
-                $this->dashboard->exitSearchMode();
-                $this->render();
-            }
-            return false;
-        }
-
         // Get keybinding or use default empty string
         $quitKey = $this->keybindings['quit'] ?? 'q';
         $refreshKey = $this->keybindings['refresh'] ?? 'r';
@@ -174,15 +149,6 @@ class FrankenCommand extends Command
         $searchLogsKey = $this->keybindings['search_logs'] ?? '/';
         $navDownKey = $this->keybindings['navigate_down'] ?? 'j';
         $navUpKey = $this->keybindings['navigate_up'] ?? 'k';
-
-        // If in search mode, handle input differently
-        if ($this->dashboard->isInSearchMode()) {
-            if (ctype_print($key)) {
-                $this->dashboard->addSearchChar($key);
-                $this->render();
-            }
-            return false;
-        }
 
         // Single character keys
         switch ($key) {
@@ -246,6 +212,13 @@ class FrankenCommand extends Command
             case $navUpKey:
                 $this->dashboard->navigateUp();
                 $this->render();
+                break;
+            default:
+                // Handle search input if in search mode
+                if ($this->dashboard->isInSearchMode()) {
+                    $this->handleSearchInput($key);
+                    $this->render();
+                }
                 break;
         }
 
