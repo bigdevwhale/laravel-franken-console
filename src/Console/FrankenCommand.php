@@ -83,7 +83,17 @@ class FrankenCommand extends Command
     {
         $this->setup();
         
-        $this->info('Starting Franken-Console... Press q to quit.');
+        // Show terminal info for debugging
+        $width = $this->terminal->getWidth();
+        $height = $this->terminal->getHeight();
+        $isSSH = $this->terminal->isSSHSession();
+        
+        $this->info("Starting Franken-Console...");
+        $this->info("Terminal: {$width}x{$height}" . ($isSSH ? ' (SSH session)' : ''));
+        $this->info("Press q to quit.");
+        
+        // Brief pause to show the info
+        usleep(500000);
 
         // Set terminal to raw mode for key input (cross-platform)
         $this->terminal->enableRawMode();

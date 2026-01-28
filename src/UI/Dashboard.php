@@ -59,20 +59,20 @@ class Dashboard
         $width = $this->terminal->getWidth();
         $height = $this->terminal->getHeight();
         
-        // Ensure sane minimum dimensions
-        $width = max(40, min(500, $width));
-        $height = max(10, min(200, $height));
+        // Ensure sane minimum dimensions - be generous for SSH sessions
+        $width = max(60, min(300, $width));
+        $height = max(15, min(100, $height));
 
-        $lines = [];
+        // Build output starting with position reset
+        $output = '';
 
-        // Line 0: Tab bar (always first)
+        // Line 0: Tab bar (always first, always visible)
         $tabBar = $this->renderTabBar($width, $height);
-        $lines[] = $tabBar;
+        $tabBarVisible = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $tabBar));
+        $output .= $tabBar . str_repeat(' ', max(0, $width - $tabBarVisible)) . "\033[K\n";
         
-        // Line 1: Separator (only if we have room)
-        if ($height >= 10) {
-            $lines[] = $this->theme->dim(str_repeat('─', $width));
-        }
+        // Line 1: Separator
+        $output .= $this->theme->dim(str_repeat('─', $width)) . "\033[K\n";
 
         // Get current panel and update its dimensions
         $panel = $this->panels[$this->currentPanel] ?? $this->panels['overview'];
@@ -85,31 +85,29 @@ class Dashboard
             $panel->setTerminalHeight($height);
         }
         
-        // Render panel content and split into lines
+        // Render panel content
         $panelContent = $panel->render();
         $panelLines = explode("\n", $panelContent);
+        
+        // Calculate how many lines we have for panel content
+        // Reserve: 2 for tab bar + separator, 2 for hotkey bar
+        $availableLines = $height - 4;
+        $lineCount = 0;
+        
         foreach ($panelLines as $line) {
-            $lines[] = $line;
-        }
-
-        // Pad to fill screen height, leaving room for hotkey bar
-        $hotkeyBarHeight = $height < 15 ? 0 : 2;
-        $targetHeight = max(0, $height - $hotkeyBarHeight);
-        
-        while (count($lines) < $targetHeight) {
-            $lines[] = '';
-        }
-        
-        // Trim to target height to prevent overflow
-        $lines = array_slice($lines, 0, $targetHeight);
-
-        // Build output - clear each line to full width to prevent artifacts
-        $output = '';
-        foreach ($lines as $line) {
-            // Calculate visible length (strip ANSI codes) for proper padding
+            if ($lineCount >= $availableLines) {
+                break;
+            }
             $visibleLen = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $line));
             $padding = max(0, $width - $visibleLen);
             $output .= $line . str_repeat(' ', $padding) . "\033[K\n";
+            $lineCount++;
+        }
+
+        // Pad remaining space
+        while ($lineCount < $availableLines) {
+            $output .= str_repeat(' ', $width) . "\033[K\n";
+            $lineCount++;
         }
 
         // Render hotkey bar at bottom
