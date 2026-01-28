@@ -23,7 +23,7 @@ class OverviewPanel
     public function render(): string
     {
         $width = $this->terminal->getWidth();
-        $colWidth = (int)(($width - 6) / 2); // Two columns with padding
+        $height = $this->terminal->getHeight();
         
         $output = "\n";
         
@@ -31,24 +31,33 @@ class OverviewPanel
         $output .= $this->renderHeader($width);
         $output .= "\n";
         
-        // Two column layout
-        $leftCol = $this->renderSystemInfo();
-        $rightCol = $this->renderQuickStats();
-        
-        $leftLines = explode("\n", $leftCol);
-        $rightLines = explode("\n", $rightCol);
-        
-        $maxLines = max(count($leftLines), count($rightLines));
-        
-        for ($i = 0; $i < $maxLines; $i++) {
-            $left = $leftLines[$i] ?? '';
-            $right = $rightLines[$i] ?? '';
+        // Use single column layout for narrow terminals
+        if ($width < 80) {
+            $output .= $this->renderSystemInfo($width);
+            $output .= "\n";
+            $output .= $this->renderQuickStats($width);
+        } else {
+            // Two column layout for wider terminals
+            $colWidth = (int)(($width - 10) / 2);
             
-            // Calculate visible length for proper padding
-            $leftVisible = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $left));
-            $leftPadding = max(0, $colWidth - $leftVisible);
+            $leftCol = $this->renderSystemInfo($colWidth);
+            $rightCol = $this->renderQuickStats($colWidth);
             
-            $output .= '  ' . $left . str_repeat(' ', $leftPadding) . '  │  ' . $right . "\n";
+            $leftLines = explode("\n", $leftCol);
+            $rightLines = explode("\n", $rightCol);
+            
+            $maxLines = max(count($leftLines), count($rightLines));
+            
+            for ($i = 0; $i < $maxLines; $i++) {
+                $left = $leftLines[$i] ?? '';
+                $right = $rightLines[$i] ?? '';
+                
+                // Calculate visible length for proper padding
+                $leftVisible = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $left));
+                $leftPadding = max(0, $colWidth - $leftVisible);
+                
+                $output .= '  ' . $left . str_repeat(' ', $leftPadding) . ' │ ' . $right . "\n";
+            }
         }
         
         $output .= "\n";
@@ -59,25 +68,29 @@ class OverviewPanel
 
     private function renderHeader(int $width): string
     {
-        $title = ' DASHBOARD OVERVIEW ';
+        $title = ' DASHBOARD ';
+        if ($width >= 80) {
+            $title = ' DASHBOARD OVERVIEW ';
+        }
         $titleLen = mb_strlen($title);
-        $sideWidth = (int)(($width - $titleLen - 4) / 2);
+        $sideWidth = max(2, (int)(($width - $titleLen - 4) / 2));
         
         $line = '  ' . str_repeat('━', $sideWidth) . $this->theme->bold($this->theme->styled($title, 'primary')) . str_repeat('━', $sideWidth);
         return $line;
     }
 
-    private function renderSystemInfo(): string
+    private function renderSystemInfo(int $colWidth = 40): string
     {
+        $lineWidth = min(30, $colWidth - 2);
         $output = $this->theme->bold($this->theme->styled('SYSTEM', 'secondary')) . "\n";
-        $output .= $this->theme->dim(str_repeat('─', 30)) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
         $output .= "\n";
 
         $data = [
             ['PHP', PHP_VERSION, 'info'],
             ['OS', $this->getOsInfo(), 'info'],
             ['Memory', $this->getMemoryUsage()['used'], 'success'],
-            ['Peak Mem', $this->getMemoryUsage()['peak'], 'warning'],
+            ['Peak', $this->getMemoryUsage()['peak'], 'warning'],
             ['Uptime', $this->formatUptime(microtime(true) - $this->startTime), 'info'],
         ];
 
@@ -88,30 +101,32 @@ class OverviewPanel
         return $output;
     }
 
-    private function renderQuickStats(): string
+    private function renderQuickStats(int $colWidth = 40): string
     {
+        $lineWidth = min(30, $colWidth - 2);
         $output = $this->theme->bold($this->theme->styled('METRICS', 'secondary')) . "\n";
-        $output .= $this->theme->dim(str_repeat('─', 30)) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
         $output .= "\n";
 
         $output .= $this->renderSparkRow('CPU', $this->getCpuLoadHistory()) . "\n";
-        $output .= $this->renderSparkRow('Memory', $this->getMemoryHistory()) . "\n";
-        $output .= $this->renderSparkRow('Disk I/O', $this->getDiskHistory()) . "\n";
+        $output .= $this->renderSparkRow('Mem', $this->getMemoryHistory()) . "\n";
+        $output .= $this->renderSparkRow('Disk', $this->getDiskHistory()) . "\n";
         $output .= "\n";
         
         // Status indicators
         $dbStatus = $this->checkDatabaseConnection();
         $dbIcon = $dbStatus === 'Connected' ? '●' : '○';
         $dbColor = $dbStatus === 'Connected' ? 'success' : 'error';
-        $output .= $this->theme->styled($dbIcon, $dbColor) . ' Database ' . $this->theme->styled($dbStatus, $dbColor) . "\n";
+        $output .= $this->theme->styled($dbIcon, $dbColor) . ' DB ' . $this->theme->styled($dbStatus, $dbColor) . "\n";
         
         return $output;
     }
 
     private function renderLaravelInfo(int $width): string
     {
-        $output = '  ' . $this->theme->bold($this->theme->styled('LARAVEL APPLICATION', 'secondary')) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $width - 4)) . "\n";
+        $lineWidth = max(20, $width - 4);
+        $output = '  ' . $this->theme->bold($this->theme->styled('LARAVEL', 'secondary')) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
         $output .= "\n";
 
         try {
@@ -131,27 +146,41 @@ class OverviewPanel
             ? $this->theme->styled(' DEBUG ', 'warning') 
             : $this->theme->styled(' PROD ', 'success');
 
-        // Horizontal layout for Laravel info
-        $items = [
-            ['Version', $version],
-            ['Env', $environment],
-            ['Cache', $cacheDriver],
-            ['Queue', $queueDriver],
-            ['Session', $sessionDriver],
-        ];
+        // Responsive layout for Laravel info
+        if ($width < 80) {
+            // Vertical layout for narrow terminals
+            $items = [
+                ['Ver', $version],
+                ['Env', $environment],
+                ['Cache', $cacheDriver],
+                ['Queue', $queueDriver],
+            ];
+            foreach ($items as $item) {
+                $output .= '  ' . $this->theme->dim(str_pad($item[0], 8)) . $this->theme->styled($item[1], 'info') . "\n";
+            }
+            $output .= '  ' . $debugBadge . "\n";
+        } else {
+            // Horizontal layout for wider terminals
+            $items = [
+                ['Version', $version],
+                ['Env', $environment],
+                ['Cache', $cacheDriver],
+                ['Queue', $queueDriver],
+            ];
 
-        $output .= '  ';
-        foreach ($items as $item) {
-            $output .= $this->theme->dim($item[0] . ': ') . $this->theme->styled($item[1], 'info') . '    ';
+            $output .= '  ';
+            foreach ($items as $item) {
+                $output .= $this->theme->dim($item[0] . ':') . $this->theme->styled($item[1], 'info') . '  ';
+            }
+            $output .= $debugBadge . "\n";
         }
-        $output .= $debugBadge . "\n";
 
         return $output;
     }
 
     private function renderRow(string $label, string $value, string $color): string
     {
-        $labelWidth = 12;
+        $labelWidth = 10;
         $label = str_pad($label, $labelWidth);
         return $this->theme->dim($label) . $this->theme->styled($value, $color);
     }

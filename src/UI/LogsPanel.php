@@ -16,6 +16,7 @@ class LogsPanel
     private array $filteredLogs = [];
     private Theme $theme;
     private int $terminalHeight = 24;
+    private int $terminalWidth = 80;
 
     public function __construct(private LogAdapter $adapter)
     {
@@ -27,8 +28,14 @@ class LogsPanel
         $this->terminalHeight = $height;
     }
 
+    public function setTerminalWidth(int $width): void
+    {
+        $this->terminalWidth = $width;
+    }
+
     public function render(): string
     {
+        $width = $this->terminalWidth;
         $logs = $this->adapter->getRecentLogs(100);
 
         // Filter logs if searching
@@ -40,23 +47,28 @@ class LogsPanel
         }
 
         $this->filteredLogs = array_values($logs);
+        $lineWidth = max(40, $width - 4);
+        $maxMsgLen = max(20, $width - 30);
 
         $output = "\n";
-        $output .= '  ' . $this->theme->bold($this->theme->styled('LOG VIEWER', 'secondary'));
+        $output .= '  ' . $this->theme->bold($this->theme->styled('LOGS', 'secondary'));
         
         if ($this->searchMode) {
-            $output .= '   ' . $this->theme->styled('🔍 ', 'primary') . 
-                       $this->theme->dim('Search: ') . 
+            $output .= '  ' . $this->theme->styled('/', 'primary') . 
                        $this->theme->styled($this->searchQuery, 'info') . 
                        $this->theme->styled('▌', 'primary');
         }
         
         $output .= "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', 76)) . "\n\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
-        // Column headers
-        $output .= '  ' . $this->theme->dim(sprintf("  %-10s %-8s %s", 'TIME', 'LEVEL', 'MESSAGE')) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', 76)) . "\n";
+        // Column headers - responsive
+        if ($width >= 80) {
+            $output .= '  ' . $this->theme->dim(sprintf("  %-10s %-7s %s", 'TIME', 'LEVEL', 'MESSAGE')) . "\n";
+        } else {
+            $output .= '  ' . $this->theme->dim(sprintf("  %-8s %-5s %s", 'TIME', 'LVL', 'MESSAGE')) . "\n";
+        }
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         $visibleLines = $this->getVisibleLines();
         $start = max(0, $this->scrollOffset);
@@ -75,14 +87,13 @@ class LogsPanel
                 $log = $this->filteredLogs[$i];
                 $isSelected = ($i === $this->selectedIndex);
                 
-                $marker = $isSelected ? $this->theme->styled(' ▸', 'primary') : '  ';
+                $marker = $isSelected ? $this->theme->styled('▸', 'primary') : ' ';
 
                 $levelColor = $this->getLevelColor($log['level']);
-                $levelBadge = $this->formatLevelBadge($log['level']);
+                $levelBadge = $this->formatLevelBadge($log['level'], $width < 80);
 
-                // Truncate long messages
+                // Truncate long messages based on terminal width
                 $message = $log['message'];
-                $maxMsgLen = 55;
                 if (strlen($message) > $maxMsgLen) {
                     $message = substr($message, 0, $maxMsgLen) . $this->theme->dim('…');
                 }
@@ -95,7 +106,7 @@ class LogsPanel
                 $timestamp = $this->formatTimestamp($log['timestamp']);
 
                 $output .= sprintf(
-                    "%s %-10s %s %s\n",
+                    "  %s %-8s %s %s\n",
                     $marker,
                     $this->theme->dim($timestamp),
                     $this->theme->styled($levelBadge, $levelColor),
@@ -106,29 +117,35 @@ class LogsPanel
 
         // Status bar
         $output .= "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', 76)) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
         
         $totalLogs = count($this->filteredLogs);
         $showing = min($end - $start, $totalLogs);
         
         $statusParts = [];
         $statusParts[] = $this->theme->dim("Showing ") . $this->theme->styled((string)$showing, 'info') . 
-                        $this->theme->dim(" of ") . $this->theme->styled((string)$totalLogs, 'info');
+                        $this->theme->dim("/") . $this->theme->styled((string)$totalLogs, 'info');
         
         if ($this->scrollOffset > 0) {
-            $statusParts[] = $this->theme->dim('↑ scroll up');
+            $statusParts[] = $this->theme->dim('↑');
         }
         if ($end < count($this->filteredLogs)) {
-            $statusParts[] = $this->theme->dim('↓ scroll down');
+            $statusParts[] = $this->theme->dim('↓');
         }
 
-        $output .= '  ' . implode('  ', $statusParts) . "\n";
-        $output .= "\n";
-        $output .= '  ' . $this->theme->dim('  ') .
-                   $this->theme->styled('/', 'secondary') . $this->theme->dim(' Search  ') .
-                   $this->theme->styled('↑↓', 'secondary') . $this->theme->dim(' Navigate  ') .
-                   $this->theme->styled('PgUp/Dn', 'secondary') . $this->theme->dim(' Page  ') .
-                   $this->theme->styled('Home/End', 'secondary') . $this->theme->dim(' Jump') . "\n";
+        $output .= '  ' . implode(' ', $statusParts) . "\n";
+        
+        // Responsive help line
+        if ($width >= 80) {
+            $output .= '  ' .
+                   $this->theme->styled('/', 'secondary') . $this->theme->dim('Search ') .
+                   $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Nav ') .
+                   $this->theme->styled('PgUp/Dn', 'secondary') . $this->theme->dim('Page') . "\n";
+        } else {
+            $output .= '  ' .
+                   $this->theme->styled('/', 'secondary') . $this->theme->dim('Srch ') .
+                   $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Nav') . "\n";
+        }
 
         return $output;
     }
@@ -144,10 +161,13 @@ class LogsPanel
         };
     }
 
-    private function formatLevelBadge(string $level): string
+    private function formatLevelBadge(string $level, bool $compact = false): string
     {
+        if ($compact) {
+            return strtoupper(substr($level, 0, 3));
+        }
         $level = strtoupper(substr($level, 0, 5));
-        return sprintf('[%-5s]', $level);
+        return sprintf('%-5s', $level);
     }
 
     private function formatTimestamp(string $timestamp): string

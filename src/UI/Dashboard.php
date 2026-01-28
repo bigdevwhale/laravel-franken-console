@@ -67,8 +67,16 @@ class Dashboard
         // Render separator
         $lines[] = $this->theme->styled(str_repeat('─', $width), 'muted');
 
-        // Get current panel
+        // Get current panel and update its dimensions
         $panel = $this->panels[$this->currentPanel] ?? $this->panels['overview'];
+        
+        // Pass terminal dimensions to panel if it supports it
+        if (method_exists($panel, 'setTerminalWidth')) {
+            $panel->setTerminalWidth($width);
+        }
+        if (method_exists($panel, 'setTerminalHeight')) {
+            $panel->setTerminalHeight($height);
+        }
         
         // Render panel content and split into lines
         $panelContent = $panel->render();
@@ -102,23 +110,30 @@ class Dashboard
 
     private function renderTabBar(int $width): string
     {
-        $tabs = [];
+        // Determine if we need compact mode based on terminal width
+        $isCompact = $width < 100;
+        $isVeryCompact = $width < 70;
+        
         $tabLabels = [
-            'overview' => 'Overview',
-            'queues' => 'Queues',
-            'jobs' => 'Jobs',
+            'overview' => $isVeryCompact ? 'Ovw' : ($isCompact ? 'Over' : 'Overview'),
+            'queues' => $isVeryCompact ? 'Que' : ($isCompact ? 'Ques' : 'Queues'),
+            'jobs' => $isVeryCompact ? 'Job' : 'Jobs',
             'logs' => 'Logs',
-            'cache' => 'Cache',
-            'scheduler' => 'Scheduler',
-            'metrics' => 'Metrics',
-            'shell' => 'Shell',
-            'settings' => 'Settings',
+            'cache' => $isVeryCompact ? 'Cch' : 'Cache',
+            'scheduler' => $isVeryCompact ? 'Sch' : ($isCompact ? 'Sched' : 'Scheduler'),
+            'metrics' => $isVeryCompact ? 'Met' : ($isCompact ? 'Metr' : 'Metrics'),
+            'shell' => $isVeryCompact ? 'Shl' : 'Shell',
+            'settings' => $isVeryCompact ? 'Set' : ($isCompact ? 'Sett' : 'Settings'),
         ];
 
         $output = '';
         
-        // App title/branding on the left
-        $output .= $this->theme->bold($this->theme->styled(' ⚡ FRANKEN ', 'primary'));
+        // App title/branding - compact on small terminals
+        if ($width >= 80) {
+            $output .= $this->theme->bold($this->theme->styled(' ⚡FRANKEN ', 'primary'));
+        } else {
+            $output .= $this->theme->styled(' ⚡ ', 'primary');
+        }
         $output .= $this->theme->styled('│', 'muted');
         
         $tabNum = 1;
@@ -127,11 +142,11 @@ class Dashboard
             $isActive = ($name === $this->currentPanel);
             
             if ($isActive) {
-                // Active tab: bright inverse style with number
-                $output .= "\033[7m" . $this->theme->styled(" {$tabNum}:{$label} ", 'primary') . "\033[0m";
+                // Active tab: inverse style - highly visible
+                $output .= "\033[7m\033[1m " . $tabNum . ':' . $label . " \033[0m";
             } else {
-                // Inactive tab: dimmed with number
-                $output .= $this->theme->dim(" {$tabNum}:") . $this->theme->styled($label, 'muted') . ' ';
+                // Inactive tab: just number, dimmed
+                $output .= $this->theme->dim(' ' . $tabNum . ':') . $this->theme->dim($label);
             }
             $tabNum++;
         }
@@ -143,12 +158,14 @@ class Dashboard
     {
         $output = $this->theme->styled(str_repeat('─', $width), 'muted') . "\n";
         
-        // Build hotkey display with consistent formatting
+        // Build hotkey display - adapt to width
+        $isCompact = $width < 80;
+        
         $hotkeys = [
-            ['q', 'Quit'],
-            ['←→', 'Tabs'],
-            ['↑↓', 'Scroll'],
-            ['r', 'Refresh'],
+            ['q', $isCompact ? 'Quit' : 'Quit'],
+            ['←→', $isCompact ? 'Tab' : 'Tabs'],
+            ['↑↓', $isCompact ? 'Nav' : 'Scroll'],
+            ['r', $isCompact ? 'Ref' : 'Refresh'],
         ];
 
         // Add context-specific hotkeys
@@ -164,8 +181,8 @@ class Dashboard
 
         $output .= ' ';
         foreach ($hotkeys as $hotkey) {
-            $output .= $this->theme->styled($this->theme->bold(' ' . $hotkey[0] . ' '), 'secondary');
-            $output .= $this->theme->dim($hotkey[1]) . '  ';
+            $output .= $this->theme->styled(' ' . $hotkey[0] . ' ', 'secondary');
+            $output .= $this->theme->dim($hotkey[1]) . ' ';
         }
 
         return $output;
