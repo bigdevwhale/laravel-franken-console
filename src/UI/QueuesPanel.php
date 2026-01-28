@@ -12,83 +12,102 @@ class QueuesPanel
     private Theme $theme;
     private int $selectedIndex = 0;
     private array $queues = [];
+    private int $terminalHeight = 24;
+    private int $terminalWidth = 80;
 
     public function __construct(private QueueAdapter $adapter)
     {
         $this->theme = new Theme();
     }
 
+    public function setTerminalHeight(int $height): void
+    {
+        $this->terminalHeight = $height;
+    }
+
+    public function setTerminalWidth(int $width): void
+    {
+        $this->terminalWidth = $width;
+    }
+
     public function render(): string
     {
         $stats = $this->adapter->getQueueStats();
         $this->queues = $stats['queues'];
+        $lineWidth = min(70, $this->terminalWidth - 4);
         
         $output = "\n";
-        $output .= '  ' . $this->theme->bold($this->theme->styled('QUEUE STATUS', 'secondary')) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', 70)) . "\n\n";
-        
-        // Header row with proper alignment
-        $output .= '  ' . $this->theme->dim(sprintf(
-            "  %-18s %12s %12s %10s   %-15s",
-            'QUEUE', 'PENDING', 'FAILED', 'WORKERS', 'STATUS'
-        )) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', 70)) . "\n";
+        $output .= '  ' . $this->theme->bold($this->theme->styled('QUEUES', 'secondary')) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         if (empty($this->queues)) {
-            $output .= "\n" . '  ' . $this->theme->dim('  No queues configured') . "\n";
+            $output .= '  ' . $this->theme->dim('No queues configured') . "\n";
         } else {
-            foreach ($this->queues as $i => $queue) {
+            // Limit queues to available space
+            $maxQueues = max(3, (int)(($this->terminalHeight - 12) / 2));
+            $displayQueues = array_slice($this->queues, 0, $maxQueues);
+            
+            foreach ($displayQueues as $i => $queue) {
                 $isSelected = ($i === $this->selectedIndex);
-                $marker = $isSelected ? $this->theme->styled(' ▸', 'primary') : '  ';
+                $marker = $isSelected ? $this->theme->styled('▸', 'primary') : ' ';
                 
                 $failedColor = $queue['failed'] > 0 ? 'error' : 'success';
                 $sizeColor = $queue['size'] > 100 ? 'warning' : ($queue['size'] > 0 ? 'info' : 'muted');
                 
-                // Status with icon
-                if ($queue['size'] > 0) {
-                    $status = $this->theme->styled('● ', 'success') . $this->theme->styled('Processing', 'success');
-                } else {
-                    $status = $this->theme->dim('○ Idle');
-                }
+                $status = $queue['size'] > 0 
+                    ? $this->theme->styled('●', 'success')
+                    : $this->theme->dim('○');
 
                 $queueName = $isSelected 
                     ? $this->theme->styled($queue['name'], 'primary')
                     : $queue['name'];
 
                 $output .= sprintf(
-                    "%s %-18s %12s %12s %10s   %s\n",
+                    "  %s %s %-15s %s%s %s%s\n",
                     $marker,
+                    $status,
                     $queueName,
-                    $this->theme->styled(str_pad((string)$queue['size'], 4, ' ', STR_PAD_LEFT), $sizeColor),
-                    $this->theme->styled(str_pad((string)$queue['failed'], 4, ' ', STR_PAD_LEFT), $failedColor),
-                    $this->theme->dim('1'),
-                    $status
+                    $this->theme->dim('pending:'),
+                    $this->theme->styled((string)$queue['size'], $sizeColor),
+                    $this->theme->dim('failed:'),
+                    $this->theme->styled((string)$queue['failed'], $failedColor)
                 );
+            }
+            
+            if (count($this->queues) > $maxQueues) {
+                $output .= '  ' . $this->theme->dim('  +' . (count($this->queues) - $maxQueues) . ' more...') . "\n";
             }
         }
 
         $output .= "\n";
         $output .= '  ' . $this->theme->bold($this->theme->styled('WORKERS', 'secondary')) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', 70)) . "\n\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         if (empty($stats['workers'])) {
-            $output .= '  ' . $this->theme->dim('  No workers running') . "\n";
+            $output .= '  ' . $this->theme->dim('No workers running') . "\n";
         } else {
-            foreach ($stats['workers'] as $worker) {
+            // Limit workers display
+            $maxWorkers = max(3, $this->terminalHeight - 15 - count($this->queues));
+            $displayWorkers = array_slice($stats['workers'], 0, $maxWorkers);
+            
+            foreach ($displayWorkers as $worker) {
                 $statusIcon = $worker['status'] === 'running' ? '●' : '○';
                 $statusColor = $worker['status'] === 'running' ? 'success' : 'error';
                 $output .= sprintf(
-                    "    %s PID %s  %s\n",
+                    "  %s PID %s %s\n",
                     $this->theme->styled($statusIcon, $statusColor),
                     $this->theme->styled((string)$worker['pid'], 'info'),
                     $this->theme->styled(ucfirst($worker['status']), $statusColor)
                 );
             }
+            
+            if (count($stats['workers']) > $maxWorkers) {
+                $output .= '  ' . $this->theme->dim('+' . (count($stats['workers']) - $maxWorkers) . ' more workers...') . "\n";
+            }
         }
 
         $output .= "\n";
-        $output .= '  ' . $this->theme->dim('  ') . 
-                   $this->theme->styled('R', 'secondary') . $this->theme->dim(' Restart worker  ') .
+        $output .= '  ' . $this->theme->styled('R', 'secondary') . $this->theme->dim(' Restart  ') .
                    $this->theme->styled('r', 'secondary') . $this->theme->dim(' Retry failed') . "\n";
 
         return $output;

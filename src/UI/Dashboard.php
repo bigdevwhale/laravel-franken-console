@@ -59,6 +59,10 @@ class Dashboard
         $width = $this->terminal->getWidth();
         $height = $this->terminal->getHeight();
 
+        // Calculate available height for panel content
+        // Reserve: 1 for tab bar, 1 for separator, 2 for hotkey bar
+        $panelHeight = max(5, $height - 4);
+
         $lines = [];
 
         // Render header/tab bar
@@ -75,23 +79,29 @@ class Dashboard
             $panel->setTerminalWidth($width);
         }
         if (method_exists($panel, 'setTerminalHeight')) {
-            $panel->setTerminalHeight($height);
+            $panel->setTerminalHeight($panelHeight);
         }
         
         // Render panel content and split into lines
         $panelContent = $panel->render();
         $panelLines = explode("\n", $panelContent);
+        
+        // IMPORTANT: Limit panel content to available height to prevent overflow
+        $panelLines = array_slice($panelLines, 0, $panelHeight);
+        
         foreach ($panelLines as $line) {
             $lines[] = $line;
         }
 
         // Pad to fill screen height, leaving room for hotkey bar
-        $contentHeight = count($lines);
         $targetHeight = max(0, $height - 2); // Leave 2 lines for hotkey bar
         
         while (count($lines) < $targetHeight) {
             $lines[] = '';
         }
+        
+        // Trim to exact height if somehow over
+        $lines = array_slice($lines, 0, $targetHeight);
 
         // Clear each line to full width to prevent artifacts
         $output = '';
@@ -272,6 +282,22 @@ class Dashboard
         if (method_exists($panel, 'scrollToBottom')) {
             $panel->scrollToBottom();
         }
+    }
+
+    public function handleEnter(): void
+    {
+        $panel = $this->panels[$this->currentPanel];
+        
+        // Handle enter based on panel type
+        if ($this->currentPanel === 'jobs' && method_exists($panel, 'viewDetails')) {
+            $panel->viewDetails();
+        } elseif ($this->currentPanel === 'logs' && method_exists($panel, 'exitSearchMode')) {
+            // In logs, Enter confirms search
+            if ($this->isInSearchMode()) {
+                $panel->exitSearchMode();
+            }
+        }
+        // Add more panel-specific Enter handling as needed
     }
 
     public function enterSearchMode(): void
