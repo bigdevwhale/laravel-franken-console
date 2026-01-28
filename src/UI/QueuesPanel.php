@@ -24,60 +24,72 @@ class QueuesPanel
         $this->queues = $stats['queues'];
         
         $output = "\n";
-        $output .= $this->theme->styled("  Queue Status\n", 'secondary');
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────\n", 'muted');
+        $output .= '  ' . $this->theme->bold($this->theme->styled('QUEUE STATUS', 'secondary')) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', 70)) . "\n\n";
         
-        // Header
-        $output .= sprintf(
-            "  %-20s %10s %10s %10s %s\n",
-            $this->theme->bold('Queue'),
-            $this->theme->bold('Pending'),
-            $this->theme->bold('Failed'),
-            $this->theme->bold('Workers'),
-            $this->theme->bold('Status')
-        );
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────\n", 'muted');
+        // Header row with proper alignment
+        $output .= '  ' . $this->theme->dim(sprintf(
+            "  %-18s %12s %12s %10s   %-15s",
+            'QUEUE', 'PENDING', 'FAILED', 'WORKERS', 'STATUS'
+        )) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', 70)) . "\n";
 
         if (empty($this->queues)) {
-            $output .= $this->theme->dim("  No queues found\n");
+            $output .= "\n" . '  ' . $this->theme->dim('  No queues configured') . "\n";
         } else {
             foreach ($this->queues as $i => $queue) {
-                $marker = ($i === $this->selectedIndex) ? $this->theme->styled('▸ ', 'primary') : '  ';
+                $isSelected = ($i === $this->selectedIndex);
+                $marker = $isSelected ? $this->theme->styled(' ▸', 'primary') : '  ';
                 
                 $failedColor = $queue['failed'] > 0 ? 'error' : 'success';
-                $sizeColor = $queue['size'] > 100 ? 'warning' : 'foreground';
+                $sizeColor = $queue['size'] > 100 ? 'warning' : ($queue['size'] > 0 ? 'info' : 'muted');
                 
-                $status = $queue['size'] > 0 ? 
-                    $this->theme->styled('● Processing', 'success') : 
-                    $this->theme->dim('○ Idle');
+                // Status with icon
+                if ($queue['size'] > 0) {
+                    $status = $this->theme->styled('● ', 'success') . $this->theme->styled('Processing', 'success');
+                } else {
+                    $status = $this->theme->dim('○ Idle');
+                }
+
+                $queueName = $isSelected 
+                    ? $this->theme->styled($queue['name'], 'primary')
+                    : $queue['name'];
 
                 $output .= sprintf(
-                    "%s%-20s %10s %10s %10s %s\n",
+                    "%s %-18s %12s %12s %10s   %s\n",
                     $marker,
-                    $queue['name'],
-                    $this->theme->styled((string)$queue['size'], $sizeColor),
-                    $this->theme->styled((string)$queue['failed'], $failedColor),
-                    '1',
+                    $queueName,
+                    $this->theme->styled(str_pad((string)$queue['size'], 4, ' ', STR_PAD_LEFT), $sizeColor),
+                    $this->theme->styled(str_pad((string)$queue['failed'], 4, ' ', STR_PAD_LEFT), $failedColor),
+                    $this->theme->dim('1'),
                     $status
                 );
             }
         }
 
         $output .= "\n";
-        $output .= $this->theme->styled("  Workers\n", 'secondary');
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────\n", 'muted');
+        $output .= '  ' . $this->theme->bold($this->theme->styled('WORKERS', 'secondary')) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', 70)) . "\n\n";
 
-        foreach ($stats['workers'] as $worker) {
-            $statusColor = $worker['status'] === 'running' ? 'success' : 'error';
-            $output .= sprintf(
-                "  PID %-8s %s\n",
-                $worker['pid'],
-                $this->theme->styled($worker['status'], $statusColor)
-            );
+        if (empty($stats['workers'])) {
+            $output .= '  ' . $this->theme->dim('  No workers running') . "\n";
+        } else {
+            foreach ($stats['workers'] as $worker) {
+                $statusIcon = $worker['status'] === 'running' ? '●' : '○';
+                $statusColor = $worker['status'] === 'running' ? 'success' : 'error';
+                $output .= sprintf(
+                    "    %s PID %s  %s\n",
+                    $this->theme->styled($statusIcon, $statusColor),
+                    $this->theme->styled((string)$worker['pid'], 'info'),
+                    $this->theme->styled(ucfirst($worker['status']), $statusColor)
+                );
+            }
         }
 
         $output .= "\n";
-        $output .= $this->theme->dim("  Press R to restart queue worker, r to retry failed jobs\n");
+        $output .= '  ' . $this->theme->dim('  ') . 
+                   $this->theme->styled('R', 'secondary') . $this->theme->dim(' Restart worker  ') .
+                   $this->theme->styled('r', 'secondary') . $this->theme->dim(' Retry failed') . "\n";
 
         return $output;
     }

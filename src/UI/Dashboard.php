@@ -104,55 +104,71 @@ class Dashboard
     {
         $tabs = [];
         $tabLabels = [
-            'overview' => '1:Overview',
-            'queues' => '2:Queues',
-            'jobs' => '3:Jobs',
-            'logs' => '4:Logs',
-            'cache' => '5:Cache',
-            'scheduler' => '6:Scheduler',
-            'metrics' => '7:Metrics',
-            'shell' => '8:Shell',
-            'settings' => '9:Settings',
+            'overview' => 'Overview',
+            'queues' => 'Queues',
+            'jobs' => 'Jobs',
+            'logs' => 'Logs',
+            'cache' => 'Cache',
+            'scheduler' => 'Scheduler',
+            'metrics' => 'Metrics',
+            'shell' => 'Shell',
+            'settings' => 'Settings',
         ];
 
+        $output = '';
+        
+        // App title/branding on the left
+        $output .= $this->theme->bold($this->theme->styled(' ⚡ FRANKEN ', 'primary'));
+        $output .= $this->theme->styled('│', 'muted');
+        
+        $tabNum = 1;
         foreach ($this->panelNames as $name) {
             $label = $tabLabels[$name] ?? ucfirst($name);
             $isActive = ($name === $this->currentPanel);
             
             if ($isActive) {
-                $tabs[] = $this->theme->styled(" {$label} ", 'primary') . $this->theme->bold('');
+                // Active tab: bright inverse style with number
+                $output .= "\033[7m" . $this->theme->styled(" {$tabNum}:{$label} ", 'primary') . "\033[0m";
             } else {
-                $tabs[] = $this->theme->dim(" {$label} ");
+                // Inactive tab: dimmed with number
+                $output .= $this->theme->dim(" {$tabNum}:") . $this->theme->styled($label, 'muted') . ' ';
             }
+            $tabNum++;
         }
 
-        return implode($this->theme->styled('│', 'muted'), $tabs);
+        return $output;
     }
 
     private function renderHotkeyBar(int $width): string
     {
+        $output = $this->theme->styled(str_repeat('─', $width), 'muted') . "\n";
+        
+        // Build hotkey display with consistent formatting
         $hotkeys = [
-            'q' => 'Quit',
-            '←/→' => 'Switch tabs',
-            '↑/↓' => 'Navigate',
-            'r' => 'Refresh',
-            '/' => 'Search',
+            ['q', 'Quit'],
+            ['←→', 'Tabs'],
+            ['↑↓', 'Scroll'],
+            ['r', 'Refresh'],
         ];
 
         // Add context-specific hotkeys
         if ($this->currentPanel === 'cache') {
-            $hotkeys['c'] = 'Clear cache';
+            $hotkeys[] = ['c', 'Clear'];
         }
         if ($this->currentPanel === 'queues') {
-            $hotkeys['R'] = 'Restart worker';
+            $hotkeys[] = ['R', 'Restart'];
+        }
+        if ($this->currentPanel === 'logs') {
+            $hotkeys[] = ['/', 'Search'];
         }
 
-        $hotkeyStr = '';
-        foreach ($hotkeys as $key => $desc) {
-            $hotkeyStr .= $this->theme->styled($key, 'secondary') . ' ' . $this->theme->dim($desc) . '  ';
+        $output .= ' ';
+        foreach ($hotkeys as $hotkey) {
+            $output .= $this->theme->styled($this->theme->bold(' ' . $hotkey[0] . ' '), 'secondary');
+            $output .= $this->theme->dim($hotkey[1]) . '  ';
         }
 
-        return $this->theme->styled(str_repeat('─', $width), 'muted') . "\n" . $hotkeyStr;
+        return $output;
     }
 
     public function switchPanel(string $panel): void

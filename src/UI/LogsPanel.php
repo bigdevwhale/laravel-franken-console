@@ -42,36 +42,49 @@ class LogsPanel
         $this->filteredLogs = array_values($logs);
 
         $output = "\n";
-        $output .= $this->theme->styled("  Log Viewer", 'secondary');
+        $output .= '  ' . $this->theme->bold($this->theme->styled('LOG VIEWER', 'secondary'));
         
         if ($this->searchMode) {
-            $output .= "  " . $this->theme->styled("Search: ", 'primary') . $this->searchQuery . $this->theme->styled("▌", 'primary');
+            $output .= '   ' . $this->theme->styled('🔍 ', 'primary') . 
+                       $this->theme->dim('Search: ') . 
+                       $this->theme->styled($this->searchQuery, 'info') . 
+                       $this->theme->styled('▌', 'primary');
         }
         
         $output .= "\n";
-        $output .= $this->theme->styled("  ─────────────────────────────────────────────────────────────────────────\n", 'muted');
+        $output .= '  ' . $this->theme->dim(str_repeat('─', 76)) . "\n\n";
+
+        // Column headers
+        $output .= '  ' . $this->theme->dim(sprintf("  %-10s %-8s %s", 'TIME', 'LEVEL', 'MESSAGE')) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', 76)) . "\n";
 
         $visibleLines = $this->getVisibleLines();
         $start = max(0, $this->scrollOffset);
         $end = min(count($this->filteredLogs), $start + $visibleLines);
 
         if (empty($this->filteredLogs)) {
-            $output .= $this->theme->dim("  No logs found" . ($this->searchMode ? " matching '" . $this->searchQuery . "'" : "") . "\n");
+            $output .= "\n" . '  ' . $this->theme->dim('  No logs found');
+            if ($this->searchMode) {
+                $output .= $this->theme->dim(" matching '") . 
+                           $this->theme->styled($this->searchQuery, 'warning') . 
+                           $this->theme->dim("'");
+            }
+            $output .= "\n";
         } else {
             for ($i = $start; $i < $end; $i++) {
                 $log = $this->filteredLogs[$i];
                 $isSelected = ($i === $this->selectedIndex);
                 
-                $marker = $isSelected ? $this->theme->styled('▸ ', 'primary') : '  ';
+                $marker = $isSelected ? $this->theme->styled(' ▸', 'primary') : '  ';
 
                 $levelColor = $this->getLevelColor($log['level']);
                 $levelBadge = $this->formatLevelBadge($log['level']);
 
                 // Truncate long messages
                 $message = $log['message'];
-                $maxMsgLen = 60;
+                $maxMsgLen = 55;
                 if (strlen($message) > $maxMsgLen) {
-                    $message = substr($message, 0, $maxMsgLen) . '...';
+                    $message = substr($message, 0, $maxMsgLen) . $this->theme->dim('…');
                 }
 
                 // Highlight search query in message
@@ -82,32 +95,40 @@ class LogsPanel
                 $timestamp = $this->formatTimestamp($log['timestamp']);
 
                 $output .= sprintf(
-                    "%s%s %s %s\n",
+                    "%s %-10s %s %s\n",
                     $marker,
                     $this->theme->dim($timestamp),
                     $this->theme->styled($levelBadge, $levelColor),
-                    $message
+                    $isSelected ? $this->theme->bold($message) : $message
                 );
             }
         }
 
-        // Scroll indicators
+        // Status bar
         $output .= "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', 76)) . "\n";
         
         $totalLogs = count($this->filteredLogs);
         $showing = min($end - $start, $totalLogs);
-        $statusLine = "  Showing {$showing} of {$totalLogs} entries";
+        
+        $statusParts = [];
+        $statusParts[] = $this->theme->dim("Showing ") . $this->theme->styled((string)$showing, 'info') . 
+                        $this->theme->dim(" of ") . $this->theme->styled((string)$totalLogs, 'info');
         
         if ($this->scrollOffset > 0) {
-            $statusLine .= " " . $this->theme->dim("↑ more above");
+            $statusParts[] = $this->theme->dim('↑ scroll up');
         }
         if ($end < count($this->filteredLogs)) {
-            $statusLine .= " " . $this->theme->dim("↓ more below");
+            $statusParts[] = $this->theme->dim('↓ scroll down');
         }
 
-        $output .= $this->theme->dim($statusLine) . "\n";
+        $output .= '  ' . implode('  ', $statusParts) . "\n";
         $output .= "\n";
-        $output .= $this->theme->dim("  / Search  ↑↓ Navigate  PgUp/PgDn Page  Home/End Jump\n");
+        $output .= '  ' . $this->theme->dim('  ') .
+                   $this->theme->styled('/', 'secondary') . $this->theme->dim(' Search  ') .
+                   $this->theme->styled('↑↓', 'secondary') . $this->theme->dim(' Navigate  ') .
+                   $this->theme->styled('PgUp/Dn', 'secondary') . $this->theme->dim(' Page  ') .
+                   $this->theme->styled('Home/End', 'secondary') . $this->theme->dim(' Jump') . "\n";
 
         return $output;
     }

@@ -22,78 +22,162 @@ class OverviewPanel
 
     public function render(): string
     {
-        $output = $this->theme->styled("  ╔══════════════════════════════════════════════════════════╗\n", 'primary');
-        $output .= $this->theme->styled("  ║", 'primary') . "           " . $this->theme->bold("Franken-Console Dashboard") . "                    " . $this->theme->styled("║\n", 'primary');
-        $output .= $this->theme->styled("  ╚══════════════════════════════════════════════════════════╝\n\n", 'primary');
+        $width = $this->terminal->getWidth();
+        $colWidth = (int)(($width - 6) / 2); // Two columns with padding
+        
+        $output = "\n";
+        
+        // Header
+        $output .= $this->renderHeader($width);
+        $output .= "\n";
+        
+        // Two column layout
+        $leftCol = $this->renderSystemInfo();
+        $rightCol = $this->renderQuickStats();
+        
+        $leftLines = explode("\n", $leftCol);
+        $rightLines = explode("\n", $rightCol);
+        
+        $maxLines = max(count($leftLines), count($rightLines));
+        
+        for ($i = 0; $i < $maxLines; $i++) {
+            $left = $leftLines[$i] ?? '';
+            $right = $rightLines[$i] ?? '';
+            
+            // Calculate visible length for proper padding
+            $leftVisible = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $left));
+            $leftPadding = max(0, $colWidth - $leftVisible);
+            
+            $output .= '  ' . $left . str_repeat(' ', $leftPadding) . '  │  ' . $right . "\n";
+        }
+        
+        $output .= "\n";
+        $output .= $this->renderLaravelInfo($width);
+        
+        return $output;
+    }
 
-        // System info
-        $output .= $this->theme->styled("  System Information\n", 'secondary');
-        $output .= $this->theme->styled("  ─────────────────────────────────────────\n", 'muted');
+    private function renderHeader(int $width): string
+    {
+        $title = ' DASHBOARD OVERVIEW ';
+        $titleLen = mb_strlen($title);
+        $sideWidth = (int)(($width - $titleLen - 4) / 2);
+        
+        $line = '  ' . str_repeat('━', $sideWidth) . $this->theme->bold($this->theme->styled($title, 'primary')) . str_repeat('━', $sideWidth);
+        return $line;
+    }
 
-        // PHP Info
-        $output .= "  PHP Version:     " . $this->theme->styled(PHP_VERSION, 'info') . "\n";
-        $output .= "  OS:              " . $this->theme->styled($this->getOsInfo(), 'info') . "\n";
-
-        // Memory usage
-        $memoryUsage = $this->getMemoryUsage();
-        $output .= "  Memory Usage:    " . $this->theme->styled($memoryUsage['used'], 'info');
-        $output .= " / " . $this->theme->dim($memoryUsage['limit']) . "\n";
-
-        // Uptime
-        $uptime = $this->formatUptime(microtime(true) - $this->startTime);
-        $output .= "  Session Uptime:  " . $this->theme->styled($uptime, 'info') . "\n";
-
+    private function renderSystemInfo(): string
+    {
+        $output = $this->theme->bold($this->theme->styled('SYSTEM', 'secondary')) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', 30)) . "\n";
         $output .= "\n";
 
-        // Laravel Info
-        $output .= $this->theme->styled("  Laravel Application\n", 'secondary');
-        $output .= $this->theme->styled("  ─────────────────────────────────────────\n", 'muted');
+        $data = [
+            ['PHP', PHP_VERSION, 'info'],
+            ['OS', $this->getOsInfo(), 'info'],
+            ['Memory', $this->getMemoryUsage()['used'], 'success'],
+            ['Peak Mem', $this->getMemoryUsage()['peak'], 'warning'],
+            ['Uptime', $this->formatUptime(microtime(true) - $this->startTime), 'info'],
+        ];
+
+        foreach ($data as $row) {
+            $output .= $this->renderRow($row[0], $row[1], $row[2]) . "\n";
+        }
+
+        return $output;
+    }
+
+    private function renderQuickStats(): string
+    {
+        $output = $this->theme->bold($this->theme->styled('METRICS', 'secondary')) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', 30)) . "\n";
+        $output .= "\n";
+
+        $output .= $this->renderSparkRow('CPU', $this->getCpuLoadHistory()) . "\n";
+        $output .= $this->renderSparkRow('Memory', $this->getMemoryHistory()) . "\n";
+        $output .= $this->renderSparkRow('Disk I/O', $this->getDiskHistory()) . "\n";
+        $output .= "\n";
+        
+        // Status indicators
+        $dbStatus = $this->checkDatabaseConnection();
+        $dbIcon = $dbStatus === 'Connected' ? '●' : '○';
+        $dbColor = $dbStatus === 'Connected' ? 'success' : 'error';
+        $output .= $this->theme->styled($dbIcon, $dbColor) . ' Database ' . $this->theme->styled($dbStatus, $dbColor) . "\n";
+        
+        return $output;
+    }
+
+    private function renderLaravelInfo(int $width): string
+    {
+        $output = '  ' . $this->theme->bold($this->theme->styled('LARAVEL APPLICATION', 'secondary')) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $width - 4)) . "\n";
+        $output .= "\n";
 
         try {
             $version = app()->version();
             $environment = app()->environment();
-            $debugMode = config('app.debug') ? $this->theme->styled('ON', 'warning') : $this->theme->styled('OFF', 'success');
-        } catch (\Exception $e) {
-            $version = 'Unknown';
-            $environment = 'Unknown';
-            $debugMode = 'Unknown';
-        }
-
-        $output .= "  Laravel Version: " . $this->theme->styled($version, 'info') . "\n";
-        $output .= "  Environment:     " . $this->theme->styled($environment, 'info') . "\n";
-        $output .= "  Debug Mode:      " . $debugMode . "\n";
-
-        // Database connection
-        $dbStatus = $this->checkDatabaseConnection();
-        $dbStatusColor = $dbStatus === 'Connected' ? 'success' : 'error';
-        $output .= "  Database:        " . $this->theme->styled($dbStatus, $dbStatusColor) . "\n";
-
-        // Cache driver
-        try {
+            $debug = config('app.debug');
             $cacheDriver = config('cache.default', 'file');
-        } catch (\Exception $e) {
-            $cacheDriver = 'Unknown';
-        }
-        $output .= "  Cache Driver:    " . $this->theme->styled($cacheDriver, 'info') . "\n";
-
-        // Queue driver
-        try {
             $queueDriver = config('queue.default', 'sync');
+            $sessionDriver = config('session.driver', 'file');
         } catch (\Exception $e) {
-            $queueDriver = 'Unknown';
+            $version = $environment = 'Unknown';
+            $debug = false;
+            $cacheDriver = $queueDriver = $sessionDriver = 'Unknown';
         }
-        $output .= "  Queue Driver:    " . $this->theme->styled($queueDriver, 'info') . "\n";
 
-        $output .= "\n";
+        $debugBadge = $debug 
+            ? $this->theme->styled(' DEBUG ', 'warning') 
+            : $this->theme->styled(' PROD ', 'success');
 
-        // Quick stats box
-        $output .= $this->theme->styled("  Quick Stats\n", 'secondary');
-        $output .= $this->theme->styled("  ─────────────────────────────────────────\n", 'muted');
+        // Horizontal layout for Laravel info
+        $items = [
+            ['Version', $version],
+            ['Env', $environment],
+            ['Cache', $cacheDriver],
+            ['Queue', $queueDriver],
+            ['Session', $sessionDriver],
+        ];
 
-        $output .= "  " . $this->renderMiniSparkline("CPU Load", $this->getCpuLoadHistory()) . "\n";
-        $output .= "  " . $this->renderMiniSparkline("Memory", $this->getMemoryHistory()) . "\n";
+        $output .= '  ';
+        foreach ($items as $item) {
+            $output .= $this->theme->dim($item[0] . ': ') . $this->theme->styled($item[1], 'info') . '    ';
+        }
+        $output .= $debugBadge . "\n";
 
         return $output;
+    }
+
+    private function renderRow(string $label, string $value, string $color): string
+    {
+        $labelWidth = 12;
+        $label = str_pad($label, $labelWidth);
+        return $this->theme->dim($label) . $this->theme->styled($value, $color);
+    }
+
+    private function renderSparkRow(string $label, array $values): string
+    {
+        $sparkChars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+        $max = max($values) ?: 1;
+        $min = min($values);
+        $range = $max - $min ?: 1;
+
+        $spark = '';
+        foreach ($values as $value) {
+            $normalized = ($value - $min) / $range;
+            $index = (int) floor($normalized * (count($sparkChars) - 1));
+            $spark .= $sparkChars[$index];
+        }
+
+        $current = end($values);
+        $color = $current > 80 ? 'error' : ($current > 60 ? 'warning' : 'success');
+        $percent = str_pad((string)round($current), 3, ' ', STR_PAD_LEFT) . '%';
+
+        $labelWidth = 10;
+        $label = str_pad($label, $labelWidth);
+        
+        return $this->theme->dim($label) . $this->theme->styled($spark, $color) . ' ' . $this->theme->bold($percent);
     }
 
     private function getOsInfo(): string
@@ -101,7 +185,11 @@ class OverviewPanel
         if ($this->terminal->isWindows()) {
             return 'Windows ' . php_uname('r');
         }
-        return php_uname('s') . ' ' . php_uname('r');
+        $name = php_uname('s');
+        if (strlen($name) > 20) {
+            $name = substr($name, 0, 17) . '...';
+        }
+        return $name;
     }
 
     private function getMemoryUsage(): array
@@ -127,7 +215,7 @@ class OverviewPanel
         $i = floor(log($bytes, 1024));
         $i = min($i, count($units) - 1);
 
-        return round($bytes / pow(1024, $i), 2) . ' ' . $units[$i];
+        return round($bytes / pow(1024, $i), 1) . ' ' . $units[$i];
     }
 
     private function formatUptime(float $seconds): string
@@ -156,36 +244,37 @@ class OverviewPanel
 
     private function getCpuLoadHistory(): array
     {
-        // Return mock data for sparkline (0-100 values)
-        return [30, 45, 35, 50, 40, 55, 45, 60, 50, 45];
+        static $history = [];
+        if (empty($history)) {
+            $history = array_map(fn() => rand(20, 60), range(1, 12));
+        }
+        array_shift($history);
+        $history[] = rand(20, 60);
+        return $history;
     }
 
     private function getMemoryHistory(): array
     {
-        // Return mock data based on current usage
-        $current = (memory_get_usage(true) / (1024 * 1024)) / 128 * 100; // Assume 128MB limit for display
-        $current = min(100, max(0, $current));
+        $current = (memory_get_usage(true) / (1024 * 1024)) / 128 * 100;
+        $current = min(100, max(5, $current));
         
-        return array_map(fn() => $current + rand(-10, 10), range(1, 10));
+        static $history = [];
+        if (empty($history)) {
+            $history = array_map(fn() => $current + rand(-5, 5), range(1, 12));
+        }
+        array_shift($history);
+        $history[] = $current + rand(-5, 5);
+        return $history;
     }
 
-    private function renderMiniSparkline(string $label, array $values): string
+    private function getDiskHistory(): array
     {
-        $sparkChars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-        $max = max($values) ?: 1;
-        $min = min($values);
-        $range = $max - $min ?: 1;
-
-        $spark = '';
-        foreach ($values as $value) {
-            $normalized = ($value - $min) / $range;
-            $index = (int) floor($normalized * (count($sparkChars) - 1));
-            $spark .= $sparkChars[$index];
+        static $history = [];
+        if (empty($history)) {
+            $history = array_map(fn() => rand(5, 30), range(1, 12));
         }
-
-        $current = end($values);
-        $color = $current > 80 ? 'error' : ($current > 60 ? 'warning' : 'success');
-
-        return sprintf("%-12s %s %s", $label . ':', $this->theme->styled($spark, $color), $this->theme->dim(round($current) . '%'));
+        array_shift($history);
+        $history[] = rand(5, 30);
+        return $history;
     }
 }
