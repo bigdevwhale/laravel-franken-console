@@ -170,6 +170,14 @@ class Terminal
      */
     private function detectWidth(): int
     {
+        // Method 0: Use cursor position report (most reliable)
+        if (!$this->isWindows || $this->isSSH) {
+            $dims = $this->getDimensionsFromCursor();
+            if ($dims !== null && $dims[0] > 0) {
+                return $dims[0];
+            }
+        }
+
         // Method 1: Try stty (works on Unix and SSH)
         $output = @shell_exec('stty size 2>/dev/null');
         if ($output !== null && preg_match('/\d+\s+(\d+)/', trim($output), $matches)) {
@@ -182,54 +190,21 @@ class Terminal
             return (int) trim($output);
         }
 
-        // Method 3: Check COLUMNS environment variable (set by some terminals)
+        // Method 3: Check COLUMNS environment variable
         $cols = getenv('COLUMNS');
-        if ($cols !== false && is_numeric($cols) && (int)$cols > 0) {
+        if ($cols !== false && is_numeric($cols)) {
             return (int) $cols;
         }
 
-        // Method 3.5: Check WT_SESSION environment (Windows Terminal)
-        if (getenv('WT_SESSION') !== false) {
-            // Windows Terminal might set COLUMNS
-            $cols = getenv('COLUMNS');
-            if ($cols !== false && is_numeric($cols) && (int)$cols > 0) {
-                return (int) $cols;
+        // Method 4: Windows local console only - try multiple approaches
+        if ($this->isWindows && !$this->isSSH) {
+            // Try PowerShell first (more reliable for current size)
+            $output = @shell_exec('powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Width" 2>nul');
+            if ($output !== null && is_numeric(trim($output))) {
+                return (int) trim($output);
             }
-        }
-
-        // Method 4: Windows - try multiple PowerShell and system methods
-        if ($this->isWindows) {
-            // Try PowerShell WindowSize.Width - multiple command variants
-            $commands = [
-                'powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Width"',
-                'powershell -Command "$Host.UI.RawUI.WindowSize.Width"',
-                'powershell.exe -NoProfile -Command "$Host.UI.RawUI.WindowSize.Width"',
-                'powershell.exe -Command "$Host.UI.RawUI.WindowSize.Width"'
-            ];
             
-            foreach ($commands as $cmd) {
-                $output = @shell_exec($cmd . ' 2>nul');
-                if ($output !== null && is_numeric(trim($output))) {
-                    return (int) trim($output);
-                }
-            }
-
-            // Try PowerShell BufferSize.Width as fallback
-            $bufferCommands = [
-                'powershell -NoProfile -Command "$Host.UI.RawUI.BufferSize.Width"',
-                'powershell -Command "$Host.UI.RawUI.BufferSize.Width"',
-                'powershell.exe -NoProfile -Command "$Host.UI.RawUI.BufferSize.Width"',
-                'powershell.exe -Command "$Host.UI.RawUI.BufferSize.Width"'
-            ];
-            
-            foreach ($bufferCommands as $cmd) {
-                $output = @shell_exec($cmd . ' 2>nul');
-                if ($output !== null && is_numeric(trim($output))) {
-                    return (int) trim($output);
-                }
-            }
-
-            // Try mode con
+            // Fallback to mode con
             $output = @shell_exec('mode con 2>nul');
             if ($output !== null && preg_match('/Columns:\s*(\d+)/i', $output, $matches)) {
                 return (int) $matches[1];
@@ -266,6 +241,14 @@ class Terminal
      */
     private function detectHeight(): int
     {
+        // Method 0: Use cursor position report (most reliable)
+        if (!$this->isWindows || $this->isSSH) {
+            $dims = $this->getDimensionsFromCursor();
+            if ($dims !== null && $dims[1] > 0) {
+                return $dims[1];
+            }
+        }
+
         // Method 1: Try stty (works on Unix and SSH)
         $output = @shell_exec('stty size 2>/dev/null');
         if ($output !== null && preg_match('/(\d+)\s+\d+/', trim($output), $matches)) {
@@ -280,52 +263,19 @@ class Terminal
 
         // Method 3: Check LINES environment variable
         $lines = getenv('LINES');
-        if ($lines !== false && is_numeric($lines) && (int)$lines > 0) {
+        if ($lines !== false && is_numeric($lines)) {
             return (int) $lines;
         }
 
-        // Method 3.5: Check WT_SESSION environment (Windows Terminal)
-        if (getenv('WT_SESSION') !== false) {
-            // Windows Terminal might set LINES
-            $lines = getenv('LINES');
-            if ($lines !== false && is_numeric($lines) && (int)$lines > 0) {
-                return (int) $lines;
+        // Method 4: Windows local console only - try multiple approaches
+        if ($this->isWindows && !$this->isSSH) {
+            // Try PowerShell first (more reliable for current size)
+            $output = @shell_exec('powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Height" 2>nul');
+            if ($output !== null && is_numeric(trim($output))) {
+                return (int) trim($output);
             }
-        }
-
-        // Method 4: Windows - try multiple PowerShell and system methods
-        if ($this->isWindows) {
-            // Try PowerShell WindowSize.Height - multiple command variants
-            $commands = [
-                'powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Height"',
-                'powershell -Command "$Host.UI.RawUI.WindowSize.Height"',
-                'powershell.exe -NoProfile -Command "$Host.UI.RawUI.WindowSize.Height"',
-                'powershell.exe -Command "$Host.UI.RawUI.WindowSize.Height"'
-            ];
             
-            foreach ($commands as $cmd) {
-                $output = @shell_exec($cmd . ' 2>nul');
-                if ($output !== null && is_numeric(trim($output))) {
-                    return (int) trim($output);
-                }
-            }
-
-            // Try PowerShell BufferSize.Height as fallback
-            $bufferCommands = [
-                'powershell -NoProfile -Command "$Host.UI.RawUI.BufferSize.Height"',
-                'powershell -Command "$Host.UI.RawUI.BufferSize.Height"',
-                'powershell.exe -NoProfile -Command "$Host.UI.RawUI.BufferSize.Height"',
-                'powershell.exe -Command "$Host.UI.RawUI.BufferSize.Height"'
-            ];
-            
-            foreach ($bufferCommands as $cmd) {
-                $output = @shell_exec($cmd . ' 2>nul');
-                if ($output !== null && is_numeric(trim($output))) {
-                    return (int) trim($output);
-                }
-            }
-
-            // Try mode con
+            // Fallback to mode con
             $output = @shell_exec('mode con 2>nul');
             if ($output !== null && preg_match('/Lines:\s*(\d+)/i', $output, $matches)) {
                 return (int) $matches[1];
@@ -388,5 +338,42 @@ class Terminal
     public function restoreCursor(): void
     {
         echo "\033[u";
+    }
+
+    /**
+     * Get dimensions using ANSI cursor position report.
+     * This is the most reliable method on non-Windows systems.
+     */
+    private function getDimensionsFromCursor(): ?array
+    {
+        // This requires raw mode to be enabled
+        if (!$this->rawModeEnabled) {
+            return null;
+        }
+
+        // Move cursor to far right/bottom
+        echo "\033[999C\033[999B";
+        
+        // Request cursor position
+        echo "\033[6n";
+
+        // Read response from stdin
+        $response = '';
+        $startTime = microtime(true);
+        while (microtime(true) - $startTime < 0.1) { // 100ms timeout
+            $char = fread(STDIN, 1);
+            if ($char === 'R') {
+                break;
+            }
+            $response .= $char;
+        }
+
+        if (preg_match('/^\033\[(\d+);(\d+)$/', $response, $matches)) {
+            $height = (int) $matches[1];
+            $width = (int) $matches[2];
+            return [$width, $height];
+        }
+
+        return null;
     }
 }
