@@ -96,7 +96,8 @@ class Dashboard
         // Calculate how many lines we have for panel content
         // Reserve: 2 for tab bar + separator, and conditionally for hotkey bar
         $hotkeyBarHeight = ($height >= 15) ? 2 : 0; // Hotkey bar takes 2 lines if shown
-        $availableLines = $height - 2 - $hotkeyBarHeight;
+        $maxContentLines = 20; // Limit content to reasonable amount to avoid scrolling
+        $availableLines = min($height - 2 - $hotkeyBarHeight, $maxContentLines);
         $lineCount = 0;
         
         foreach ($panelLines as $line) {
@@ -123,151 +124,46 @@ class Dashboard
 
     private function renderTabBar(int $width, int $height = 24): string
     {
-        // Determine if we need compact mode based on terminal width
-        $isUltraWide = $width >= 200;
-        $isWide = $width >= 150;
-        $isCompact = $width < 100;
-        $isVeryCompact = $width < 70;
-        $isTiny = $width < 50;
-        
-        // Tab labels adapt to available width - prioritize brevity
-        $tabLabels = [
-            'overview' => $isTiny ? '1' : ($isVeryCompact ? 'O' : ($isCompact ? 'Ov' : ($isWide ? 'Ovr' : ($isUltraWide ? 'Overview' : 'Overvw')))),
-            'queues' => $isTiny ? '2' : ($isVeryCompact ? 'Q' : ($isCompact ? 'Qu' : ($isWide ? 'Que' : ($isUltraWide ? 'Queues' : 'Queue')))),
-            'jobs' => $isTiny ? '3' : ($isVeryCompact ? 'J' : ($isWide ? 'Job' : 'Jobs')),
-            'logs' => $isTiny ? '4' : ($isVeryCompact ? 'L' : 'Logs'),
-            'cache' => $isTiny ? '5' : ($isVeryCompact ? 'C' : ($isCompact ? 'Ca' : ($isWide ? 'Cac' : 'Cache'))),
-            'scheduler' => $isTiny ? '6' : ($isVeryCompact ? 'S' : ($isCompact ? 'Sc' : ($isWide ? 'Sch' : ($isUltraWide ? 'Scheduler' : 'Sched')))),
-            'metrics' => $isTiny ? '7' : ($isVeryCompact ? 'M' : ($isCompact ? 'Me' : ($isWide ? 'Met' : 'Metr'))),
-            'shell' => $isTiny ? '8' : ($isVeryCompact ? 'H' : ($isWide ? 'Shl' : 'Shell')),
-            'settings' => $isTiny ? '9' : ($isVeryCompact ? 'T' : ($isCompact ? 'Se' : ($isWide ? 'Set' : 'Sett'))),
-        ];
-
-        // Start output - always start at column 0
         $output = '';
         
-        // App title/branding - adapt to width
-        if ($width >= 200) {
-            $output .= "\033[1;36m ⚡ FRANKEN CONSOLE \033[0m"; // Full branding for ultra-wide
-            $output .= "\033[90m│\033[0m";
-        } elseif ($width >= 120) {
-            $output .= "\033[1;36m ⚡FRANKEN \033[0m"; // Bold cyan
-            $output .= "\033[90m│\033[0m";
-        } elseif ($width >= 80) {
-            $output .= "\033[36m⚡\033[0m";
-            $output .= "\033[90m│\033[0m";
-        }
-        // No branding for narrow terminals
+        // Simple tab display: show current panel and navigation
+        $currentIndex = array_search($this->currentPanel, $this->panelNames, true);
+        $totalPanels = count($this->panelNames);
         
-        $tabNum = 1;
-        $currentLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $output));
-        
-        // First pass: ensure active tab is included
-        $activeTabText = '';
-        $activeTabLength = 0;
-        foreach ($this->panelNames as $name) {
-            $label = $tabLabels[$name] ?? ucfirst($name);
-            $isActive = ($name === $this->currentPanel);
-            
-            if ($isActive) {
-                $activeTabText = " \033[1;96m" . ($isTiny ? '' : $tabNum . ':') . $label . "\033[0m ";
-                $activeTabLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $activeTabText));
-                break;
-            }
-            $tabNum++;
-        }
-        
-        // Add active tab first if it fits
-        $activeTabAdded = false;
-        if ($activeTabText) {
-            // Ensure active tab fits, truncate branding if necessary
-            if ($currentLength + $activeTabLength > $width - 2) {
-                // Remove branding to make space for active tab
-                $brandingLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $output));
-                $output = '';
-                $currentLength = 0;
-            }
-            
-            if ($activeTabLength <= $width - 2) {
-                $output .= $activeTabText;
-                $currentLength += $activeTabLength;
-                $activeTabAdded = true;
-            } else {
-                // Active tab too long even without branding, show minimal version
-                $minimalActive = " \033[1;96m" . $tabNum . "\033[0m ";
-                $minimalLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $minimalActive));
-                if ($minimalLength <= $width - 2) {
-                    $output .= $minimalActive;
-                    $currentLength += $minimalLength;
-                    $activeTabAdded = true;
-                }
+        // Show branding if space
+        $branding = '';
+        if ($width >= 80) {
+            $branding = ' FRANKEN ';
+            if (mb_strlen($branding) + 10 > $width) {
+                $branding = ' FK ';
             }
         }
         
-        // Second pass: add other tabs that fit
-        $tabNum = 1;
-        $tabsShown = 0;
-        $totalTabs = count($this->panelNames);
-        $firstVisibleTab = -1;
-        $lastVisibleTab = -1;
+        $output .= $branding;
         
-        foreach ($this->panelNames as $index => $name) {
-            $label = $tabLabels[$name] ?? ucfirst($name);
-            $isActive = ($name === $this->currentPanel);
-            
-            // Skip active tab (already added)
-            if ($isActive) {
-                $tabsShown++;
-                $tabNum++;
-                continue;
-            }
-            
-            $tabText = '';
-            if ($isTiny) {
-                $tabText = " \033[90m" . $tabNum . "\033[0m";
-            } else {
-                $tabText = " \033[90m" . $tabNum . ':' . $label . "\033[0m";
-            }
-            
-            $tabVisibleLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $tabText));
-            
-            // Check if adding this tab would exceed width
-            if ($currentLength + $tabVisibleLength > $width - 2) {
-                // Add navigation indicators
-                if ($width >= 60) {
-                    // Show left arrow if there are tabs before the first visible
-                    if ($firstVisibleTab > 0) {
-                        $leftArrow = " \033[90m‹\033[0m";
-                        $arrowLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $leftArrow));
-                        if ($currentLength + $arrowLength <= $width - 2) {
-                            $output = $leftArrow . $output; // Prepend
-                            $currentLength += $arrowLength;
-                        }
-                    }
-                    
-                    // Show right arrow if there are tabs after the last visible
-                    if ($lastVisibleTab < $totalTabs - 1) {
-                        $rightArrow = " \033[90m›\033[0m";
-                        $arrowLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $rightArrow));
-                        if ($currentLength + $arrowLength <= $width - 2) {
-                            $output .= $rightArrow;
-                        }
-                    }
-                }
-                break; // Stop adding tabs if we'd exceed width
-            }
-            
-            if ($firstVisibleTab === -1) {
-                $firstVisibleTab = $index;
-            }
-            $lastVisibleTab = $index;
-            
-            $output .= $tabText;
-            $currentLength += $tabVisibleLength;
-            $tabsShown++;
-            $tabNum++;
+        // Show current panel
+        $currentName = ucfirst($this->currentPanel);
+        if (mb_strlen($currentName) > 10) {
+            $currentName = substr($currentName, 0, 7) . '...';
         }
-
+        
+        $tabInfo = '[' . ($currentIndex + 1) . '/' . $totalPanels . ': ' . $currentName . ']';
+        $output .= $tabInfo;
+        
+        // Add navigation hints if space
+        $remainingSpace = $width - mb_strlen($output);
+        if ($remainingSpace > 10) {
+            if ($currentIndex > 0) {
+                $output .= ' ←';
+            }
+            if ($currentIndex < $totalPanels - 1) {
+                $output .= ' →';
+            }
+        }
+        
+        // Pad to full width
+        $output .= str_repeat(' ', max(0, $width - mb_strlen($output)));
+        
         return $output;
     }
 
