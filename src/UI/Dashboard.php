@@ -124,29 +124,33 @@ class Dashboard
     private function renderTabBar(int $width, int $height = 24): string
     {
         // Determine if we need compact mode based on terminal width
+        $isUltraWide = $width >= 200;
+        $isWide = $width >= 150;
         $isCompact = $width < 100;
         $isVeryCompact = $width < 70;
         $isTiny = $width < 50;
-        $isWide = $width >= 150;
         
-        // Tab labels adapt to available width
+        // Tab labels adapt to available width - prioritize brevity
         $tabLabels = [
-            'overview' => $isTiny ? '1' : ($isVeryCompact ? 'Ovw' : ($isCompact ? 'Over' : ($isWide ? 'Ov' : 'Overview'))),
-            'queues' => $isTiny ? '2' : ($isVeryCompact ? 'Que' : ($isCompact ? 'Ques' : ($isWide ? 'Qu' : 'Queues'))),
-            'jobs' => $isTiny ? '3' : ($isVeryCompact ? 'Job' : ($isWide ? 'Jo' : 'Jobs')),
-            'logs' => $isTiny ? '4' : ($isWide ? 'Lo' : 'Logs'),
-            'cache' => $isTiny ? '5' : ($isVeryCompact ? 'Cch' : ($isWide ? 'Ca' : 'Cache')),
-            'scheduler' => $isTiny ? '6' : ($isVeryCompact ? 'Sch' : ($isCompact ? 'Sched' : ($isWide ? 'Sc' : 'Scheduler'))),
-            'metrics' => $isTiny ? '7' : ($isVeryCompact ? 'Met' : ($isCompact ? 'Metr' : ($isWide ? 'Me' : 'Metrics'))),
-            'shell' => $isTiny ? '8' : ($isVeryCompact ? 'Shl' : ($isWide ? 'Sh' : 'Shell')),
-            'settings' => $isTiny ? '9' : ($isVeryCompact ? 'Set' : ($isCompact ? 'Sett' : ($isWide ? 'Se' : 'Settings'))),
+            'overview' => $isTiny ? '1' : ($isVeryCompact ? 'O' : ($isCompact ? 'Ov' : ($isWide ? 'Ovr' : ($isUltraWide ? 'Overview' : 'Overvw')))),
+            'queues' => $isTiny ? '2' : ($isVeryCompact ? 'Q' : ($isCompact ? 'Qu' : ($isWide ? 'Que' : ($isUltraWide ? 'Queues' : 'Queue')))),
+            'jobs' => $isTiny ? '3' : ($isVeryCompact ? 'J' : ($isWide ? 'Job' : 'Jobs')),
+            'logs' => $isTiny ? '4' : ($isVeryCompact ? 'L' : 'Logs'),
+            'cache' => $isTiny ? '5' : ($isVeryCompact ? 'C' : ($isCompact ? 'Ca' : ($isWide ? 'Cac' : 'Cache'))),
+            'scheduler' => $isTiny ? '6' : ($isVeryCompact ? 'S' : ($isCompact ? 'Sc' : ($isWide ? 'Sch' : ($isUltraWide ? 'Scheduler' : 'Sched')))),
+            'metrics' => $isTiny ? '7' : ($isVeryCompact ? 'M' : ($isCompact ? 'Me' : ($isWide ? 'Met' : 'Metr'))),
+            'shell' => $isTiny ? '8' : ($isVeryCompact ? 'H' : ($isWide ? 'Shl' : 'Shell')),
+            'settings' => $isTiny ? '9' : ($isVeryCompact ? 'T' : ($isCompact ? 'Se' : ($isWide ? 'Set' : 'Sett'))),
         ];
 
         // Start output - always start at column 0
         $output = '';
         
         // App title/branding - adapt to width
-        if ($width >= 120) {
+        if ($width >= 200) {
+            $output .= "\033[1;36m ⚡ FRANKEN CONSOLE \033[0m"; // Full branding for ultra-wide
+            $output .= "\033[90m│\033[0m";
+        } elseif ($width >= 120) {
             $output .= "\033[1;36m ⚡FRANKEN \033[0m"; // Bold cyan
             $output .= "\033[90m│\033[0m";
         } elseif ($width >= 80) {
@@ -158,32 +162,109 @@ class Dashboard
         $tabNum = 1;
         $currentLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $output));
         
+        // First pass: ensure active tab is included
+        $activeTabText = '';
+        $activeTabLength = 0;
         foreach ($this->panelNames as $name) {
             $label = $tabLabels[$name] ?? ucfirst($name);
             $isActive = ($name === $this->currentPanel);
             
-            $tabText = '';
             if ($isActive) {
-                // Active tab: bold bright cyan text
-                $output .= " \033[1;96m" . ($isTiny ? '' : $tabNum . ':') . $label . "\033[0m ";
+                $activeTabText = " \033[1;96m" . ($isTiny ? '' : $tabNum . ':') . $label . "\033[0m ";
+                $activeTabLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $activeTabText));
+                break;
+            }
+            $tabNum++;
+        }
+        
+        // Add active tab first if it fits
+        $activeTabAdded = false;
+        if ($activeTabText) {
+            // Ensure active tab fits, truncate branding if necessary
+            if ($currentLength + $activeTabLength > $width - 2) {
+                // Remove branding to make space for active tab
+                $brandingLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $output));
+                $output = '';
+                $currentLength = 0;
+            }
+            
+            if ($activeTabLength <= $width - 2) {
+                $output .= $activeTabText;
+                $currentLength += $activeTabLength;
+                $activeTabAdded = true;
             } else {
-                // Inactive tab: dim text
-                if ($isTiny) {
-                    $tabText = " \033[90m" . $tabNum . "\033[0m";
-                } else {
-                    $tabText = " \033[90m" . $tabNum . ':' . $label . "\033[0m";
+                // Active tab too long even without branding, show minimal version
+                $minimalActive = " \033[1;96m" . $tabNum . "\033[0m ";
+                $minimalLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $minimalActive));
+                if ($minimalLength <= $width - 2) {
+                    $output .= $minimalActive;
+                    $currentLength += $minimalLength;
+                    $activeTabAdded = true;
                 }
+            }
+        }
+        
+        // Second pass: add other tabs that fit
+        $tabNum = 1;
+        $tabsShown = 0;
+        $totalTabs = count($this->panelNames);
+        $firstVisibleTab = -1;
+        $lastVisibleTab = -1;
+        
+        foreach ($this->panelNames as $index => $name) {
+            $label = $tabLabels[$name] ?? ucfirst($name);
+            $isActive = ($name === $this->currentPanel);
+            
+            // Skip active tab (already added)
+            if ($isActive) {
+                $tabsShown++;
+                $tabNum++;
+                continue;
+            }
+            
+            $tabText = '';
+            if ($isTiny) {
+                $tabText = " \033[90m" . $tabNum . "\033[0m";
+            } else {
+                $tabText = " \033[90m" . $tabNum . ':' . $label . "\033[0m";
             }
             
             $tabVisibleLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $tabText));
             
             // Check if adding this tab would exceed width
-            if ($currentLength + $tabVisibleLength > $width - 2) { // Leave some margin
+            if ($currentLength + $tabVisibleLength > $width - 2) {
+                // Add navigation indicators
+                if ($width >= 60) {
+                    // Show left arrow if there are tabs before the first visible
+                    if ($firstVisibleTab > 0) {
+                        $leftArrow = " \033[90m‹\033[0m";
+                        $arrowLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $leftArrow));
+                        if ($currentLength + $arrowLength <= $width - 2) {
+                            $output = $leftArrow . $output; // Prepend
+                            $currentLength += $arrowLength;
+                        }
+                    }
+                    
+                    // Show right arrow if there are tabs after the last visible
+                    if ($lastVisibleTab < $totalTabs - 1) {
+                        $rightArrow = " \033[90m›\033[0m";
+                        $arrowLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $rightArrow));
+                        if ($currentLength + $arrowLength <= $width - 2) {
+                            $output .= $rightArrow;
+                        }
+                    }
+                }
                 break; // Stop adding tabs if we'd exceed width
             }
             
+            if ($firstVisibleTab === -1) {
+                $firstVisibleTab = $index;
+            }
+            $lastVisibleTab = $index;
+            
             $output .= $tabText;
             $currentLength += $tabVisibleLength;
+            $tabsShown++;
             $tabNum++;
         }
 
