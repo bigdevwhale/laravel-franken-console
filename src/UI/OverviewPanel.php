@@ -12,6 +12,8 @@ class OverviewPanel
     private Theme $theme;
     private Terminal $terminal;
     private float $startTime;
+    private int $terminalWidth = 80;
+    private int $terminalHeight = 24;
 
     public function __construct(?Terminal $terminal = null)
     {
@@ -20,10 +22,20 @@ class OverviewPanel
         $this->startTime = microtime(true);
     }
 
+    public function setTerminalWidth(int $width): void
+    {
+        $this->terminalWidth = $width;
+    }
+
+    public function setTerminalHeight(int $height): void
+    {
+        $this->terminalHeight = $height;
+    }
+
     public function render(): string
     {
-        $width = $this->terminal->getWidth();
-        $height = $this->terminal->getHeight();
+        $width = $this->terminalWidth;
+        $height = $this->terminalHeight;
         
         $output = "\n";
         

@@ -188,8 +188,15 @@ class Terminal
             return (int) $cols;
         }
 
-        // Method 4: Windows local console only
+        // Method 4: Windows local console only - try multiple approaches
         if ($this->isWindows && !$this->isSSH) {
+            // Try PowerShell first (more reliable for current size)
+            $output = @shell_exec('powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Width" 2>nul');
+            if ($output !== null && is_numeric(trim($output))) {
+                return (int) trim($output);
+            }
+            
+            // Fallback to mode con
             $output = @shell_exec('mode con 2>nul');
             if ($output !== null && preg_match('/Columns:\s*(\d+)/i', $output, $matches)) {
                 return (int) $matches[1];
@@ -244,8 +251,15 @@ class Terminal
             return (int) $lines;
         }
 
-        // Method 4: Windows local console only
+        // Method 4: Windows local console only - try multiple approaches
         if ($this->isWindows && !$this->isSSH) {
+            // Try PowerShell first (more reliable for current size)
+            $output = @shell_exec('powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Height" 2>nul');
+            if ($output !== null && is_numeric(trim($output))) {
+                return (int) trim($output);
+            }
+            
+            // Fallback to mode con
             $output = @shell_exec('mode con 2>nul');
             if ($output !== null && preg_match('/Lines:\s*(\d+)/i', $output, $matches)) {
                 return (int) $matches[1];

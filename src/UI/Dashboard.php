@@ -77,12 +77,16 @@ class Dashboard
         // Get current panel and update its dimensions
         $panel = $this->panels[$this->currentPanel] ?? $this->panels['overview'];
         
+        // Calculate available content height (total height minus tab bar, separator, and hotkey bar)
+        $hotkeyBarHeight = ($height >= 15) ? 2 : 0; // Hotkey bar takes 2 lines if shown
+        $availableContentHeight = $height - 2 - $hotkeyBarHeight; // 2 for tabs + separator
+        
         // Pass terminal dimensions to panel if it supports it
         if (method_exists($panel, 'setTerminalWidth')) {
             $panel->setTerminalWidth($width);
         }
         if (method_exists($panel, 'setTerminalHeight')) {
-            $panel->setTerminalHeight($height);
+            $panel->setTerminalHeight($availableContentHeight);
         }
         
         // Render panel content
@@ -90,8 +94,9 @@ class Dashboard
         $panelLines = explode("\n", $panelContent);
         
         // Calculate how many lines we have for panel content
-        // Reserve: 2 for tab bar + separator, 2 for hotkey bar
-        $availableLines = $height - 4;
+        // Reserve: 2 for tab bar + separator, and conditionally for hotkey bar
+        $hotkeyBarHeight = ($height >= 15) ? 2 : 0; // Hotkey bar takes 2 lines if shown
+        $availableLines = $height - 2 - $hotkeyBarHeight;
         $lineCount = 0;
         
         foreach ($panelLines as $line) {
@@ -150,22 +155,35 @@ class Dashboard
         // No branding for tiny terminals
         
         $tabNum = 1;
+        $currentLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $output));
+        
         foreach ($this->panelNames as $name) {
             $label = $tabLabels[$name] ?? ucfirst($name);
             $isActive = ($name === $this->currentPanel);
             
+            $tabText = '';
             if ($isActive) {
                 // Active tab: inverse video with bold - very visible
                 // Use raw ANSI for reliability: inverse + bold + white
-                $output .= " \033[7;1;37m " . ($isTiny ? '' : $tabNum . ':') . $label . " \033[0m";
+                $tabText = " \033[7;1;37m " . ($isTiny ? '' : $tabNum . ':') . $label . " \033[0m";
             } else {
                 // Inactive tab: dim text
                 if ($isTiny) {
-                    $output .= " \033[90m" . $tabNum . "\033[0m";
+                    $tabText = " \033[90m" . $tabNum . "\033[0m";
                 } else {
-                    $output .= " \033[90m" . $tabNum . ':' . $label . "\033[0m";
+                    $tabText = " \033[90m" . $tabNum . ':' . $label . "\033[0m";
                 }
             }
+            
+            $tabVisibleLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $tabText));
+            
+            // Check if adding this tab would exceed width
+            if ($currentLength + $tabVisibleLength > $width - 2) { // Leave some margin
+                break; // Stop adding tabs if we'd exceed width
+            }
+            
+            $output .= $tabText;
+            $currentLength += $tabVisibleLength;
             $tabNum++;
         }
 
