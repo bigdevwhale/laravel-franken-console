@@ -127,32 +127,33 @@ class Dashboard
         $isCompact = $width < 100;
         $isVeryCompact = $width < 70;
         $isTiny = $width < 50;
+        $isWide = $width >= 150;
         
         // Tab labels adapt to available width
         $tabLabels = [
-            'overview' => $isTiny ? '1' : ($isVeryCompact ? 'Ovw' : ($isCompact ? 'Over' : 'Overview')),
-            'queues' => $isTiny ? '2' : ($isVeryCompact ? 'Que' : ($isCompact ? 'Ques' : 'Queues')),
-            'jobs' => $isTiny ? '3' : ($isVeryCompact ? 'Job' : 'Jobs'),
-            'logs' => $isTiny ? '4' : 'Logs',
-            'cache' => $isTiny ? '5' : ($isVeryCompact ? 'Cch' : 'Cache'),
-            'scheduler' => $isTiny ? '6' : ($isVeryCompact ? 'Sch' : ($isCompact ? 'Sched' : 'Scheduler')),
-            'metrics' => $isTiny ? '7' : ($isVeryCompact ? 'Met' : ($isCompact ? 'Metr' : 'Metrics')),
-            'shell' => $isTiny ? '8' : ($isVeryCompact ? 'Shl' : 'Shell'),
-            'settings' => $isTiny ? '9' : ($isVeryCompact ? 'Set' : ($isCompact ? 'Sett' : 'Settings')),
+            'overview' => $isTiny ? '1' : ($isVeryCompact ? 'Ovw' : ($isCompact ? 'Over' : ($isWide ? 'Ov' : 'Overview'))),
+            'queues' => $isTiny ? '2' : ($isVeryCompact ? 'Que' : ($isCompact ? 'Ques' : ($isWide ? 'Qu' : 'Queues'))),
+            'jobs' => $isTiny ? '3' : ($isVeryCompact ? 'Job' : ($isWide ? 'Jo' : 'Jobs')),
+            'logs' => $isTiny ? '4' : ($isWide ? 'Lo' : 'Logs'),
+            'cache' => $isTiny ? '5' : ($isVeryCompact ? 'Cch' : ($isWide ? 'Ca' : 'Cache')),
+            'scheduler' => $isTiny ? '6' : ($isVeryCompact ? 'Sch' : ($isCompact ? 'Sched' : ($isWide ? 'Sc' : 'Scheduler'))),
+            'metrics' => $isTiny ? '7' : ($isVeryCompact ? 'Met' : ($isCompact ? 'Metr' : ($isWide ? 'Me' : 'Metrics'))),
+            'shell' => $isTiny ? '8' : ($isVeryCompact ? 'Shl' : ($isWide ? 'Sh' : 'Shell')),
+            'settings' => $isTiny ? '9' : ($isVeryCompact ? 'Set' : ($isCompact ? 'Sett' : ($isWide ? 'Se' : 'Settings'))),
         ];
 
         // Start output - always start at column 0
         $output = '';
         
         // App title/branding - adapt to width
-        if ($width >= 80) {
+        if ($width >= 120) {
             $output .= "\033[1;36m ⚡FRANKEN \033[0m"; // Bold cyan
             $output .= "\033[90m│\033[0m";
-        } elseif ($width >= 50) {
+        } elseif ($width >= 80) {
             $output .= "\033[36m⚡\033[0m";
             $output .= "\033[90m│\033[0m";
         }
-        // No branding for tiny terminals
+        // No branding for narrow terminals
         
         $tabNum = 1;
         $currentLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $output));
@@ -163,9 +164,8 @@ class Dashboard
             
             $tabText = '';
             if ($isActive) {
-                // Active tab: inverse video with bold - very visible
-                // Use raw ANSI for reliability: inverse + bold + white
-                $tabText = " \033[7;1;37m " . ($isTiny ? '' : $tabNum . ':') . $label . " \033[0m";
+                // Active tab: bold bright cyan text
+                $output .= " \033[1;96m" . ($isTiny ? '' : $tabNum . ':') . $label . "\033[0m ";
             } else {
                 // Inactive tab: dim text
                 if ($isTiny) {

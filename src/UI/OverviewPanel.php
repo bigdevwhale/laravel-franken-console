@@ -44,13 +44,14 @@ class OverviewPanel
         $output .= "\n";
         
         // Use single column layout for narrow terminals
-        if ($width < 80) {
+        if ($width < 120) {
             $output .= $this->renderSystemInfo($width);
             $output .= "\n";
             $output .= $this->renderQuickStats($width);
         } else {
             // Two column layout for wider terminals
-            $colWidth = (int)(($width - 10) / 2);
+            $maxColWidth = 50; // Limit column width for readability
+            $colWidth = (int) min($maxColWidth, ($width - 10) / 2);
             
             $leftCol = $this->renderSystemInfo($colWidth);
             $rightCol = $this->renderQuickStats($colWidth);
@@ -74,6 +75,12 @@ class OverviewPanel
         
         $output .= "\n";
         $output .= $this->renderLaravelInfo($width);
+        
+        // Show additional info if there's height available
+        if ($height >= 25) {
+            $output .= "\n";
+            $output .= $this->renderPHPInfo($width);
+        }
         
         return $output;
     }
@@ -185,6 +192,31 @@ class OverviewPanel
                 $output .= $this->theme->dim($item[0] . ':') . $this->theme->styled($item[1], 'info') . '  ';
             }
             $output .= $debugBadge . "\n";
+        }
+
+        return $output;
+    }
+
+    private function renderPHPInfo(int $width): string
+    {
+        $lineWidth = max(20, $width - 4);
+        $output = '  ' . $this->theme->bold($this->theme->styled('PHP', 'secondary')) . "\n";
+        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output .= "\n";
+
+        $extensions = get_loaded_extensions();
+        $importantExtensions = ['pdo', 'mbstring', 'json', 'xml', 'curl', 'openssl', 'gd', 'zip'];
+        $loadedImportant = array_intersect($importantExtensions, $extensions);
+        $missingImportant = array_diff($importantExtensions, $extensions);
+
+        $output .= '  ' . $this->theme->dim('Extensions: ') . count($extensions) . ' loaded';
+        if (!empty($loadedImportant)) {
+            $output .= ' (' . implode(', ', $loadedImportant) . ')';
+        }
+        $output .= "\n";
+
+        if (!empty($missingImportant)) {
+            $output .= '  ' . $this->theme->styled('Missing: ' . implode(', ', $missingImportant), 'warning') . "\n";
         }
 
         return $output;
