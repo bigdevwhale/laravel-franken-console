@@ -182,21 +182,54 @@ class Terminal
             return (int) trim($output);
         }
 
-        // Method 3: Check COLUMNS environment variable
+        // Method 3: Check COLUMNS environment variable (set by some terminals)
         $cols = getenv('COLUMNS');
-        if ($cols !== false && is_numeric($cols)) {
+        if ($cols !== false && is_numeric($cols) && (int)$cols > 0) {
             return (int) $cols;
         }
 
-        // Method 4: Windows local console only - try multiple approaches
-        if ($this->isWindows && !$this->isSSH) {
-            // Try PowerShell first (more reliable for current size)
-            $output = @shell_exec('powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Width" 2>nul');
-            if ($output !== null && is_numeric(trim($output))) {
-                return (int) trim($output);
+        // Method 3.5: Check WT_SESSION environment (Windows Terminal)
+        if (getenv('WT_SESSION') !== false) {
+            // Windows Terminal might set COLUMNS
+            $cols = getenv('COLUMNS');
+            if ($cols !== false && is_numeric($cols) && (int)$cols > 0) {
+                return (int) $cols;
             }
+        }
+
+        // Method 4: Windows - try multiple PowerShell and system methods
+        if ($this->isWindows) {
+            // Try PowerShell WindowSize.Width - multiple command variants
+            $commands = [
+                'powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Width"',
+                'powershell -Command "$Host.UI.RawUI.WindowSize.Width"',
+                'powershell.exe -NoProfile -Command "$Host.UI.RawUI.WindowSize.Width"',
+                'powershell.exe -Command "$Host.UI.RawUI.WindowSize.Width"'
+            ];
             
-            // Fallback to mode con
+            foreach ($commands as $cmd) {
+                $output = @shell_exec($cmd . ' 2>nul');
+                if ($output !== null && is_numeric(trim($output))) {
+                    return (int) trim($output);
+                }
+            }
+
+            // Try PowerShell BufferSize.Width as fallback
+            $bufferCommands = [
+                'powershell -NoProfile -Command "$Host.UI.RawUI.BufferSize.Width"',
+                'powershell -Command "$Host.UI.RawUI.BufferSize.Width"',
+                'powershell.exe -NoProfile -Command "$Host.UI.RawUI.BufferSize.Width"',
+                'powershell.exe -Command "$Host.UI.RawUI.BufferSize.Width"'
+            ];
+            
+            foreach ($bufferCommands as $cmd) {
+                $output = @shell_exec($cmd . ' 2>nul');
+                if ($output !== null && is_numeric(trim($output))) {
+                    return (int) trim($output);
+                }
+            }
+
+            // Try mode con
             $output = @shell_exec('mode con 2>nul');
             if ($output !== null && preg_match('/Columns:\s*(\d+)/i', $output, $matches)) {
                 return (int) $matches[1];
@@ -247,19 +280,52 @@ class Terminal
 
         // Method 3: Check LINES environment variable
         $lines = getenv('LINES');
-        if ($lines !== false && is_numeric($lines)) {
+        if ($lines !== false && is_numeric($lines) && (int)$lines > 0) {
             return (int) $lines;
         }
 
-        // Method 4: Windows local console only - try multiple approaches
-        if ($this->isWindows && !$this->isSSH) {
-            // Try PowerShell first (more reliable for current size)
-            $output = @shell_exec('powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Height" 2>nul');
-            if ($output !== null && is_numeric(trim($output))) {
-                return (int) trim($output);
+        // Method 3.5: Check WT_SESSION environment (Windows Terminal)
+        if (getenv('WT_SESSION') !== false) {
+            // Windows Terminal might set LINES
+            $lines = getenv('LINES');
+            if ($lines !== false && is_numeric($lines) && (int)$lines > 0) {
+                return (int) $lines;
             }
+        }
+
+        // Method 4: Windows - try multiple PowerShell and system methods
+        if ($this->isWindows) {
+            // Try PowerShell WindowSize.Height - multiple command variants
+            $commands = [
+                'powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Height"',
+                'powershell -Command "$Host.UI.RawUI.WindowSize.Height"',
+                'powershell.exe -NoProfile -Command "$Host.UI.RawUI.WindowSize.Height"',
+                'powershell.exe -Command "$Host.UI.RawUI.WindowSize.Height"'
+            ];
             
-            // Fallback to mode con
+            foreach ($commands as $cmd) {
+                $output = @shell_exec($cmd . ' 2>nul');
+                if ($output !== null && is_numeric(trim($output))) {
+                    return (int) trim($output);
+                }
+            }
+
+            // Try PowerShell BufferSize.Height as fallback
+            $bufferCommands = [
+                'powershell -NoProfile -Command "$Host.UI.RawUI.BufferSize.Height"',
+                'powershell -Command "$Host.UI.RawUI.BufferSize.Height"',
+                'powershell.exe -NoProfile -Command "$Host.UI.RawUI.BufferSize.Height"',
+                'powershell.exe -Command "$Host.UI.RawUI.BufferSize.Height"'
+            ];
+            
+            foreach ($bufferCommands as $cmd) {
+                $output = @shell_exec($cmd . ' 2>nul');
+                if ($output !== null && is_numeric(trim($output))) {
+                    return (int) trim($output);
+                }
+            }
+
+            // Try mode con
             $output = @shell_exec('mode con 2>nul');
             if ($output !== null && preg_match('/Lines:\s*(\d+)/i', $output, $matches)) {
                 return (int) $matches[1];
