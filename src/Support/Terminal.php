@@ -170,14 +170,6 @@ class Terminal
      */
     private function detectWidth(): int
     {
-        // Method 0: Use cursor position report (most reliable)
-        if (!$this->isWindows || $this->isSSH) {
-            $dims = $this->getDimensionsFromCursor();
-            if ($dims !== null && $dims[0] > 0) {
-                return $dims[0];
-            }
-        }
-
         // Method 1: Try stty (works on Unix and SSH)
         $output = @shell_exec('stty size 2>/dev/null');
         if ($output !== null && preg_match('/\d+\s+(\d+)/', trim($output), $matches)) {
@@ -196,15 +188,8 @@ class Terminal
             return (int) $cols;
         }
 
-        // Method 4: Windows local console only - try multiple approaches
+        // Method 4: Windows local console only
         if ($this->isWindows && !$this->isSSH) {
-            // Try PowerShell first (more reliable for current size)
-            $output = @shell_exec('powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Width" 2>nul');
-            if ($output !== null && is_numeric(trim($output))) {
-                return (int) trim($output);
-            }
-            
-            // Fallback to mode con
             $output = @shell_exec('mode con 2>nul');
             if ($output !== null && preg_match('/Columns:\s*(\d+)/i', $output, $matches)) {
                 return (int) $matches[1];
@@ -241,14 +226,6 @@ class Terminal
      */
     private function detectHeight(): int
     {
-        // Method 0: Use cursor position report (most reliable)
-        if (!$this->isWindows || $this->isSSH) {
-            $dims = $this->getDimensionsFromCursor();
-            if ($dims !== null && $dims[1] > 0) {
-                return $dims[1];
-            }
-        }
-
         // Method 1: Try stty (works on Unix and SSH)
         $output = @shell_exec('stty size 2>/dev/null');
         if ($output !== null && preg_match('/(\d+)\s+\d+/', trim($output), $matches)) {
@@ -267,15 +244,8 @@ class Terminal
             return (int) $lines;
         }
 
-        // Method 4: Windows local console only - try multiple approaches
+        // Method 4: Windows local console only
         if ($this->isWindows && !$this->isSSH) {
-            // Try PowerShell first (more reliable for current size)
-            $output = @shell_exec('powershell -NoProfile -Command "$Host.UI.RawUI.WindowSize.Height" 2>nul');
-            if ($output !== null && is_numeric(trim($output))) {
-                return (int) trim($output);
-            }
-            
-            // Fallback to mode con
             $output = @shell_exec('mode con 2>nul');
             if ($output !== null && preg_match('/Lines:\s*(\d+)/i', $output, $matches)) {
                 return (int) $matches[1];
@@ -338,42 +308,5 @@ class Terminal
     public function restoreCursor(): void
     {
         echo "\033[u";
-    }
-
-    /**
-     * Get dimensions using ANSI cursor position report.
-     * This is the most reliable method on non-Windows systems.
-     */
-    private function getDimensionsFromCursor(): ?array
-    {
-        // This requires raw mode to be enabled
-        if (!$this->rawModeEnabled) {
-            return null;
-        }
-
-        // Move cursor to far right/bottom
-        echo "\033[999C\033[999B";
-        
-        // Request cursor position
-        echo "\033[6n";
-
-        // Read response from stdin
-        $response = '';
-        $startTime = microtime(true);
-        while (microtime(true) - $startTime < 0.1) { // 100ms timeout
-            $char = fread(STDIN, 1);
-            if ($char === 'R') {
-                break;
-            }
-            $response .= $char;
-        }
-
-        if (preg_match('/^\033\[(\d+);(\d+)$/', $response, $matches)) {
-            $height = (int) $matches[1];
-            $width = (int) $matches[2];
-            return [$width, $height];
-        }
-
-        return null;
     }
 }

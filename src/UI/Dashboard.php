@@ -77,16 +77,12 @@ class Dashboard
         // Get current panel and update its dimensions
         $panel = $this->panels[$this->currentPanel] ?? $this->panels['overview'];
         
-        // Calculate available content height (total height minus tab bar, separator, and hotkey bar)
-        $hotkeyBarHeight = ($height >= 15) ? 2 : 0; // Hotkey bar takes 2 lines if shown
-        $availableContentHeight = $height - 2 - $hotkeyBarHeight; // 2 for tabs + separator
-        
         // Pass terminal dimensions to panel if it supports it
         if (method_exists($panel, 'setTerminalWidth')) {
             $panel->setTerminalWidth($width);
         }
         if (method_exists($panel, 'setTerminalHeight')) {
-            $panel->setTerminalHeight($availableContentHeight);
+            $panel->setTerminalHeight($height);
         }
         
         // Render panel content
@@ -94,10 +90,8 @@ class Dashboard
         $panelLines = explode("\n", $panelContent);
         
         // Calculate how many lines we have for panel content
-        // Reserve: 2 for tab bar + separator, and conditionally for hotkey bar
-        $hotkeyBarHeight = ($height >= 15) ? 2 : 0; // Hotkey bar takes 2 lines if shown
-        $maxContentLines = $height < 25 ? $height - 2 - $hotkeyBarHeight : 20; // Allow more lines on small screens
-        $availableLines = min($height - 2 - $hotkeyBarHeight, $maxContentLines);
+        // Reserve: 2 for tab bar + separator, 2 for hotkey bar
+        $availableLines = $height - 4;
         $lineCount = 0;
         
         foreach ($panelLines as $line) {
@@ -124,14 +118,12 @@ class Dashboard
 
     private function renderTabBar(int $width, int $height = 24): string
     {
-        $output = '';
-        
-        // Determine compact mode
+        // Determine if we need compact mode based on terminal width
         $isCompact = $width < 100;
         $isVeryCompact = $width < 70;
         $isTiny = $width < 50;
         
-        // Tab labels
+        // Tab labels adapt to available width
         $tabLabels = [
             'overview' => $isTiny ? '1' : ($isVeryCompact ? 'Ovw' : ($isCompact ? 'Over' : 'Overview')),
             'queues' => $isTiny ? '2' : ($isVeryCompact ? 'Que' : ($isCompact ? 'Ques' : 'Queues')),
@@ -143,41 +135,40 @@ class Dashboard
             'shell' => $isTiny ? '8' : ($isVeryCompact ? 'Shl' : 'Shell'),
             'settings' => $isTiny ? '9' : ($isVeryCompact ? 'Set' : ($isCompact ? 'Sett' : 'Settings')),
         ];
+
+        // Start output - always start at column 0
+        $output = '';
         
-        // Branding
+        // App title/branding - adapt to width
         if ($width >= 80) {
-            $output .= "\033[36m⚡\033[0m ";
+            $output .= "\033[1;36m ⚡FRANKEN \033[0m"; // Bold cyan
+            $output .= "\033[90m│\033[0m";
+        } elseif ($width >= 50) {
+            $output .= "\033[36m⚡\033[0m";
+            $output .= "\033[90m│\033[0m";
         }
+        // No branding for tiny terminals
         
-        $currentLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $output));
-        
-        // Show tabs that fit
         $tabNum = 1;
         foreach ($this->panelNames as $name) {
             $label = $tabLabels[$name] ?? ucfirst($name);
             $isActive = ($name === $this->currentPanel);
             
-            $tabText = '';
             if ($isActive) {
-                $tabText = "\033[1;96m[" . ($isTiny ? '' : $tabNum . ':') . $label . "]\033[0m ";
+                // Active tab: inverse video with bold - very visible
+                // Use raw ANSI for reliability: inverse + bold + white
+                $output .= " \033[7;1;37m " . ($isTiny ? '' : $tabNum . ':') . $label . " \033[0m";
             } else {
-                $tabText = "\033[90m" . ($isTiny ? $tabNum : $tabNum . ':' . $label) . "\033[0m ";
+                // Inactive tab: dim text
+                if ($isTiny) {
+                    $output .= " \033[90m" . $tabNum . "\033[0m";
+                } else {
+                    $output .= " \033[90m" . $tabNum . ':' . $label . "\033[0m";
+                }
             }
-            
-            $tabVisibleLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $tabText));
-            
-            if ($currentLength + $tabVisibleLength > $width - 2) {
-                break;
-            }
-            
-            $output .= $tabText;
-            $currentLength += $tabVisibleLength;
             $tabNum++;
         }
-        
-        // Pad to full width
-        $output .= str_repeat(' ', max(0, $width - $currentLength));
-        
+
         return $output;
     }
 
