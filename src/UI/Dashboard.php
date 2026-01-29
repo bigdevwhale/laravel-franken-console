@@ -96,7 +96,7 @@ class Dashboard
         // Calculate how many lines we have for panel content
         // Reserve: 2 for tab bar + separator, and conditionally for hotkey bar
         $hotkeyBarHeight = ($height >= 15) ? 2 : 0; // Hotkey bar takes 2 lines if shown
-        $maxContentLines = 20; // Limit content to reasonable amount to avoid scrolling
+        $maxContentLines = $height < 25 ? $height - 2 - $hotkeyBarHeight : 20; // Allow more lines on small screens
         $availableLines = min($height - 2 - $hotkeyBarHeight, $maxContentLines);
         $lineCount = 0;
         
@@ -126,43 +126,57 @@ class Dashboard
     {
         $output = '';
         
-        // Simple tab display: show current panel and navigation
-        $currentIndex = array_search($this->currentPanel, $this->panelNames, true);
-        $totalPanels = count($this->panelNames);
+        // Determine compact mode
+        $isCompact = $width < 100;
+        $isVeryCompact = $width < 70;
+        $isTiny = $width < 50;
         
-        // Show branding if space
-        $branding = '';
+        // Tab labels
+        $tabLabels = [
+            'overview' => $isTiny ? '1' : ($isVeryCompact ? 'Ovw' : ($isCompact ? 'Over' : 'Overview')),
+            'queues' => $isTiny ? '2' : ($isVeryCompact ? 'Que' : ($isCompact ? 'Ques' : 'Queues')),
+            'jobs' => $isTiny ? '3' : ($isVeryCompact ? 'Job' : 'Jobs'),
+            'logs' => $isTiny ? '4' : 'Logs',
+            'cache' => $isTiny ? '5' : ($isVeryCompact ? 'Cch' : 'Cache'),
+            'scheduler' => $isTiny ? '6' : ($isVeryCompact ? 'Sch' : ($isCompact ? 'Sched' : 'Scheduler')),
+            'metrics' => $isTiny ? '7' : ($isVeryCompact ? 'Met' : ($isCompact ? 'Metr' : 'Metrics')),
+            'shell' => $isTiny ? '8' : ($isVeryCompact ? 'Shl' : 'Shell'),
+            'settings' => $isTiny ? '9' : ($isVeryCompact ? 'Set' : ($isCompact ? 'Sett' : 'Settings')),
+        ];
+        
+        // Branding
         if ($width >= 80) {
-            $branding = ' FRANKEN ';
-            if (mb_strlen($branding) + 10 > $width) {
-                $branding = ' FK ';
-            }
+            $output .= "\033[36m⚡\033[0m ";
         }
         
-        $output .= $branding;
+        $currentLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $output));
         
-        // Show current panel
-        $currentName = ucfirst($this->currentPanel);
-        if (mb_strlen($currentName) > 10) {
-            $currentName = substr($currentName, 0, 7) . '...';
-        }
-        
-        $tabInfo = '[' . ($currentIndex + 1) . '/' . $totalPanels . ': ' . $currentName . ']';
-        $output .= $tabInfo;
-        
-        // Add navigation hints if space
-        $remainingSpace = $width - mb_strlen($output);
-        if ($remainingSpace > 10) {
-            if ($currentIndex > 0) {
-                $output .= ' ←';
+        // Show tabs that fit
+        $tabNum = 1;
+        foreach ($this->panelNames as $name) {
+            $label = $tabLabels[$name] ?? ucfirst($name);
+            $isActive = ($name === $this->currentPanel);
+            
+            $tabText = '';
+            if ($isActive) {
+                $tabText = "\033[1;96m[" . ($isTiny ? '' : $tabNum . ':') . $label . "]\033[0m ";
+            } else {
+                $tabText = "\033[90m" . ($isTiny ? $tabNum : $tabNum . ':' . $label) . "\033[0m ";
             }
-            if ($currentIndex < $totalPanels - 1) {
-                $output .= ' →';
+            
+            $tabVisibleLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $tabText));
+            
+            if ($currentLength + $tabVisibleLength > $width - 2) {
+                break;
             }
+            
+            $output .= $tabText;
+            $currentLength += $tabVisibleLength;
+            $tabNum++;
         }
         
         // Pad to full width
-        $output .= str_repeat(' ', max(0, $width - mb_strlen($output)));
+        $output .= str_repeat(' ', max(0, $width - $currentLength));
         
         return $output;
     }
