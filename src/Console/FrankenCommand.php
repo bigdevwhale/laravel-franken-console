@@ -69,7 +69,8 @@ class FrankenCommand extends Command
         $this->logAdapter = new LogAdapter();
         $this->cacheAdapter = new CacheAdapter();
         $this->metricsAdapter = new MetricsAdapter();
-        $this->terminal = new Terminal();
+        
+        // Terminal is now passed in, not created here
         $this->dashboard = new Dashboard(
             $this->queueAdapter,
             $this->logAdapter,
@@ -81,22 +82,14 @@ class FrankenCommand extends Command
 
     public function handle(): int
     {
-        $this->setup();
-        
-        // Show terminal info for debugging
-        $width = $this->terminal->getWidth();
-        $height = $this->terminal->getHeight();
-        $isSSH = $this->terminal->isSSHSession();
-        
         $this->info("Starting Franken-Console...");
-        $this->info("Terminal: {$width}x{$height}" . ($isSSH ? ' (SSH session)' : ''));
-        $this->info("Press q to quit.");
         
-        // Brief pause to show the info
-        usleep(500000);
-
         // Set terminal to raw mode for key input (cross-platform)
+        $this->terminal = new Terminal();
         $this->terminal->enableRawMode();
+
+        // Now that raw mode is enabled, we can setup the dashboard which relies on terminal dimensions
+        $this->setup();
 
         // Enter alternate screen buffer
         $this->terminal->enterAlternateScreen();
