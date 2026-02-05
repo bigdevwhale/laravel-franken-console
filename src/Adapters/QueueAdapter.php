@@ -8,7 +8,25 @@ use Illuminate\Support\Facades\DB;
 
 class QueueAdapter
 {
+    private array $cache = [];
+    private float $cacheExpiry = 0;
+    private const CACHE_DURATION = 2.0; // seconds
     public function getQueueStats(): array
+    {
+        $now = microtime(true);
+        if ($now < $this->cacheExpiry && isset($this->cache['queueStats'])) {
+            return $this->cache['queueStats'];
+        }
+
+        // Cache miss - fetch fresh data
+        $stats = $this->fetchQueueStats();
+        $this->cache['queueStats'] = $stats;
+        $this->cacheExpiry = $now + self::CACHE_DURATION;
+
+        return $stats;
+    }
+
+    private function fetchQueueStats(): array
     {
         try {
             if (!class_exists('Illuminate\Support\Facades\DB')) {
@@ -61,6 +79,22 @@ class QueueAdapter
     }
 
     public function getRecentJobs(int $limit = 50): array
+    {
+        $now = microtime(true);
+        $cacheKey = 'recentJobs_' . $limit;
+        if ($now < $this->cacheExpiry && isset($this->cache[$cacheKey])) {
+            return $this->cache[$cacheKey];
+        }
+
+        // Cache miss - fetch fresh data
+        $jobs = $this->fetchRecentJobs($limit);
+        $this->cache[$cacheKey] = $jobs;
+        $this->cacheExpiry = $now + self::CACHE_DURATION;
+
+        return $jobs;
+    }
+
+    private function fetchRecentJobs(int $limit = 50): array
     {
         try {
             $jobs = [];
@@ -191,5 +225,11 @@ class QueueAdapter
         } catch (\Exception $e) {
             return false;
         }
+    }
+
+    public function invalidateCache(): void
+    {
+        $this->cache = [];
+        $this->cacheExpiry = 0;
     }
 }

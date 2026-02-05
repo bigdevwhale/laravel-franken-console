@@ -26,6 +26,7 @@ class FrankenCommand extends Command
     private float $lastPollTime = 0;
     private Terminal $terminal;
     private bool $running = true;
+    private bool $needsRender = true;
 
     private function shouldPoll(): bool
     {
@@ -37,6 +38,7 @@ class FrankenCommand extends Command
     {
         $this->lastPollTime = microtime(true);
         // Data is polled on-demand in adapters
+        $this->needsRender = true;
     }
 
     public function __construct()
@@ -120,7 +122,12 @@ class FrankenCommand extends Command
             // Check if it's time to poll data
             if ($this->shouldPoll()) {
                 $this->pollData();
+            }
+
+            // Render only if needed
+            if ($this->needsRender) {
                 $this->render();
+                $this->needsRender = false;
             }
         }
 
@@ -202,6 +209,7 @@ class FrankenCommand extends Command
                 break;
             case $restartWorkerKey:
                 $this->queueAdapter->restartWorker();
+                $this->queueAdapter->invalidateCache();
                 $this->render();
                 break;
             case $searchLogsKey:
@@ -302,16 +310,15 @@ class FrankenCommand extends Command
         // Force terminal to re-read dimensions on each render
         // This handles resize events properly
         $this->terminal->refreshDimensions();
-        
+
         // Reset all terminal state and position
-        echo "\033[?25l";   // Hide cursor
         echo "\033[H";      // Move cursor to home (1,1)
         echo "\033[2J";     // Clear entire screen
         echo "\033[H";      // Move cursor to home again (ensure position)
-        
+
         $output = $this->dashboard->render();
         echo $output;
-        
+
         // Flush output buffer
         if (function_exists('ob_flush')) {
             @ob_flush();

@@ -9,7 +9,25 @@ use Illuminate\Support\Facades\Artisan;
 
 class CacheAdapter
 {
+    private array $cache = [];
+    private float $cacheExpiry = 0;
+    private const CACHE_DURATION = 2.0; // seconds
     public function getCacheStats(): array
+    {
+        $now = microtime(true);
+        if ($now < $this->cacheExpiry && isset($this->cache['cacheStats'])) {
+            return $this->cache['cacheStats'];
+        }
+
+        // Cache miss - fetch fresh data
+        $stats = $this->fetchCacheStats();
+        $this->cache['cacheStats'] = $stats;
+        $this->cacheExpiry = $now + self::CACHE_DURATION;
+
+        return $stats;
+    }
+
+    private function fetchCacheStats(): array
     {
         $driver = 'unknown';
         $size = 'unknown';
@@ -76,11 +94,13 @@ class CacheAdapter
             Artisan::call('config:clear');
             Artisan::call('view:clear');
             Artisan::call('route:clear');
+            $this->invalidateCache();
             return true;
         } catch (\Exception $e) {
             // Try direct cache clear
             try {
                 Cache::flush();
+                $this->invalidateCache();
                 return true;
             } catch (\Exception $e) {
                 return false;
@@ -95,5 +115,11 @@ class CacheAdapter
         } catch (\Exception $e) {
             return false;
         }
+    }
+
+    public function invalidateCache(): void
+    {
+        $this->cache = [];
+        $this->cacheExpiry = 0;
     }
 }
