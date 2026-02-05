@@ -21,8 +21,6 @@ class JobsPanel extends Panel
         $this->adapter = $adapter;
         $this->theme = new Theme();
     }
-        $this->theme = new Theme();
-    }
 
     public function setTerminalHeight(int $height): void
     {
