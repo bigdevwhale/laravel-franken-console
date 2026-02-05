@@ -7,13 +7,14 @@ namespace Franken\Console\UI;
 use Franken\Console\Adapters\CacheAdapter;
 use Franken\Console\Support\Theme;
 
-class CacheConfigPanel
+class CacheConfigPanel extends Panel
 {
     private Theme $theme;
     private int $selectedAction = 0;
     private int $scrollOffset = 0;
     private int $terminalHeight = 24;
     private int $terminalWidth = 80;
+    private CacheAdapter $adapter;
     private array $actions = [
         ['key' => 'cache:clear', 'name' => 'Clear Application Cache', 'desc' => 'Flush the application cache'],
         ['key' => 'config:clear', 'name' => 'Clear Config Cache', 'desc' => 'Remove the configuration cache file'],
@@ -22,8 +23,10 @@ class CacheConfigPanel
         ['key' => 'optimize:clear', 'name' => 'Clear All Caches', 'desc' => 'Remove all cached data'],
     ];
 
-    public function __construct(private CacheAdapter $adapter)
+    public function __construct(string $name = 'Cache', CacheAdapter $adapter)
     {
+        parent::__construct($name);
+        $this->adapter = $adapter;
         $this->theme = new Theme();
     }
 

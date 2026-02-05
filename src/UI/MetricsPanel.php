@@ -7,14 +7,17 @@ namespace Franken\Console\UI;
 use Franken\Console\Adapters\MetricsAdapter;
 use Franken\Console\Support\Theme;
 
-class MetricsPanel
+class MetricsPanel extends Panel
 {
     private Theme $theme;
     private int $terminalHeight = 24;
     private int $terminalWidth = 80;
+    private MetricsAdapter $adapter;
 
-    public function __construct(private MetricsAdapter $adapter)
+    public function __construct(string $name = 'Metrics', MetricsAdapter $adapter)
     {
+        parent::__construct($name);
+        $this->adapter = $adapter;
         $this->theme = new Theme();
     }
 

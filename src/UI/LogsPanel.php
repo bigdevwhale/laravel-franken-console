@@ -7,7 +7,7 @@ namespace Franken\Console\UI;
 use Franken\Console\Adapters\LogAdapter;
 use Franken\Console\Support\Theme;
 
-class LogsPanel
+class LogsPanel extends Panel
 {
     private int $scrollOffset = 0;
     private int $selectedIndex = 0;
@@ -17,9 +17,12 @@ class LogsPanel
     private Theme $theme;
     private int $terminalHeight = 24;
     private int $terminalWidth = 80;
+    private LogAdapter $adapter;
 
-    public function __construct(private LogAdapter $adapter)
+    public function __construct(string $name = 'Logs', LogAdapter $adapter)
     {
+        parent::__construct($name);
+        $this->adapter = $adapter;
         $this->theme = new Theme();
     }
 

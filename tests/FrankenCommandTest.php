@@ -66,31 +66,31 @@ class FrankenCommandTest extends TestCase
         $metricsAdapter = new MetricsAdapter();
         $terminal = new Terminal();
 
-        $overview = new OverviewPanel($terminal);
+        $overview = new OverviewPanel('Overview', $terminal);
         $this->assertIsString($overview->render());
 
-        $queues = new QueuesPanel($queueAdapter);
+        $queues = new QueuesPanel('Queues', $queueAdapter);
         $this->assertIsString($queues->render());
 
-        $jobs = new JobsPanel($queueAdapter);
+        $jobs = new JobsPanel('Jobs', $queueAdapter);
         $this->assertIsString($jobs->render());
 
-        $logs = new LogsPanel($logAdapter);
+        $logs = new LogsPanel('Logs', $logAdapter);
         $this->assertIsString($logs->render());
 
-        $cache = new CacheConfigPanel($cacheAdapter);
+        $cache = new CacheConfigPanel('Cache', $cacheAdapter);
         $this->assertIsString($cache->render());
 
-        $scheduler = new SchedulerPanel();
+        $scheduler = new SchedulerPanel('Scheduler');
         $this->assertIsString($scheduler->render());
 
-        $metrics = new MetricsPanel($metricsAdapter);
+        $metrics = new MetricsPanel('Metrics', $metricsAdapter);
         $this->assertIsString($metrics->render());
 
-        $shell = new ShellExecPanel();
+        $shell = new ShellExecPanel('Shell');
         $this->assertIsString($shell->render());
 
-        $settings = new SettingsPanel();
+        $settings = new SettingsPanel('Settings');
         $this->assertIsString($settings->render());
     }
 
@@ -192,7 +192,7 @@ class FrankenCommandTest extends TestCase
     public function testLogsPanelSearch(): void
     {
         $logAdapter = new LogAdapter();
-        $panel = new LogsPanel($logAdapter);
+        $panel = new LogsPanel('Logs', $logAdapter);
         
         // Test search mode
         $this->assertFalse($panel->isInSearchMode());
