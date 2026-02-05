@@ -30,7 +30,7 @@ class FrankenCommand extends Command
 
     private function shouldPoll(): bool
     {
-        $interval = config('franken.polling_interval', 2);
+        $interval = config('franken.polling_interval', 1);  // Change default to 1s
         return (microtime(true) - $this->lastPollTime) >= $interval;
     }
 
@@ -103,6 +103,18 @@ class FrankenCommand extends Command
 
         // Main loop using stream_select for better input handling
         while ($this->running) {
+            $this->terminal->refreshDimensions();  // Check for resize every iteration
+
+            if ($this->shouldPoll()) {
+                $this->pollData();
+            }
+            if ($this->needsRender) {
+                $this->render();
+                $this->needsRender = false;
+            }
+
+
+
             $read = [STDIN];
             $write = null;
             $except = null;
@@ -307,18 +319,13 @@ class FrankenCommand extends Command
 
     private function render(): void
     {
-        // Force terminal to re-read dimensions on each render
-        // This handles resize events properly
         $this->terminal->refreshDimensions();
-
-        // Move cursor to home position (no clear - prevents flicker)
-        echo "\033[H";
-        echo "\033[0m";  // Reset all attributes
+        $this->terminal->clearScreen();  // Explicit clear + home
+        echo "\033[0m";  // Reset attributes
 
         $output = $this->dashboard->render();
         echo $output;
 
-        // Flush output buffer
         if (function_exists('ob_flush')) {
             @ob_flush();
         }

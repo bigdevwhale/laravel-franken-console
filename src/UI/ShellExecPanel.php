@@ -238,20 +238,13 @@ class ShellExecPanel extends Panel
         }
     }
 
-    public function runQuickCommand(int $index): array
+    public function isInteractive(): bool
     {
-        $commands = [
-            1 => 'list',
-            2 => 'route:list --compact',
-            3 => 'about',
-            4 => 'migrate:status',
-            5 => 'queue:work --once',
-        ];
+        return $this->inputMode;
+    }
 
-        if (isset($commands[$index])) {
-            return $this->executeCommand($commands[$index]);
-        }
-
-        return ['error' => 'Invalid command index'];
+    public function isPaused(): bool
+    {
+        return false; // Shell panel doesn't have pause
     }
 }

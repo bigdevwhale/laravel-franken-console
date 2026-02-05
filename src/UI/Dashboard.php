@@ -134,44 +134,8 @@ class Dashboard
         // Line 1: Process status line
         $output .= $this->renderProcessState($width) . "\n";
 
-        // Line 2: Box top border
-        $output .= $this->theme->dim('╭' . str_repeat('─', $width - 2) . '╮') . "\n";
-
-        // Content pane (lines 3 to height-4)
-        $panelContent = $this->getCurrentPanel()->render();
-        $contentLines = explode("\n", trim($panelContent)); // Trim to remove trailing newline
-        
-        $availableLines = $height - 6; // Total height minus: tabs(1) + status(1) + top border(1) + bottom border(1) + hotkeys(1) + buffer(1)
-        $lineCount = 0;
-        
-        foreach ($contentLines as $line) {
-            if ($lineCount >= $availableLines) {
-                break;
-            }
-            
-            // Clean line and truncate if needed
-            $cleanLine = preg_replace('/\033\[[0-9;]*m/', '', $line);
-            $lineLen = mb_strlen($cleanLine);
-            
-            if ($lineLen > $contentWidth) {
-                $line = mb_substr($cleanLine, 0, $contentWidth - 3) . '...';
-                $lineLen = $contentWidth;
-            }
-            
-            // Add left border, content with padding, right border
-            $padding = max(0, $contentWidth - $lineLen);
-            $output .= $this->theme->dim('│') . ' ' . $line . str_repeat(' ', $padding) . ' ' . $this->theme->dim('│') . "\n";
-            $lineCount++;
-        }
-
-        // Fill remaining content lines
-        while ($lineCount < $availableLines) {
-            $output .= $this->theme->dim('│') . str_repeat(' ', $contentWidth + 2) . $this->theme->dim('│') . "\n";
-            $lineCount++;
-        }
-
-        // Box bottom border
-        $output .= $this->theme->dim('╰' . str_repeat('─', $width - 2) . '╯') . "\n";
+        // Content pane with borders like Solo
+        $output .= $this->renderContentPane($width, $height);
 
         // Hotkey bar
         $output .= $this->renderHotkeyBar($width);
@@ -181,37 +145,63 @@ class Dashboard
 
     private function renderTabBar(int $width): string
     {
-        $tabs = Collection::make($this->panels)->map(fn(Panel $panel, int $index) => [
-            'panel' => $panel,
-            'display' => ' ' . $panel->getName() . ' ',
-            'focused' => $panel->isFocused(),
-            'index' => $index
-        ]);
+        $width = $this->terminal->getWidth();
+        $tabs = [];
+        $visibleTabs = [];
+        $overflowLeft = 0;
+        $overflowRight = 0;
+        $tabWidth = max(10, (int)($width / count($this->panels)));  // Dynamic tab width like Solo
 
-        // Find the focused tab index
-        $focusedIndex = $this->selectedPanelIndex;
+        foreach ($this->panels as $index => $panel) {
+            $name = $panel->getName();
+            $state = $panel->getStatus();
+            $isSelected = ($index === $this->selectedPanelIndex);
 
-        // Calculate visible tabs based on width (similar to Solo's algorithm)
-        [$start, $end] = $this->calculateVisibleTabs($tabs, $focusedIndex, $width);
+            $tabText = str_pad($name, $tabWidth - 2, ' ', STR_PAD_BOTH);  // Center text in tab
+            if (mb_strlen($tabText) > $tabWidth) {
+                $tabText = mb_substr($tabText, 0, $tabWidth - 3) . '...';  // Truncate long tabs
+            }
 
-        $selectedTabs = $tabs
-            ->slice($start, $end - $start + 1)
-            ->map(fn($tab) => $this->styleTab($tab['panel'], $tab['display']))
-            ->implode(' ');
-
-        // Add overflow indicators if needed
-        if ($start > 0) {
-            $more = $this->theme->tabMore("(← {$start}) ");
-            $selectedTabs = $more . $selectedTabs;
+            if ($isSelected) {
+                $tab = $this->theme->tabFocused($tabText, $state);
+            } else {
+                $tab = $this->theme->tabBlurred($tabText, $state);
+            }
+            $tabs[] = $tab;
         }
 
-        if ($end < $tabs->count() - 1) {
-            $remaining = $tabs->count() - 1 - $end;
-            $more = $this->theme->tabMore(" ({$remaining} →)");
-            $selectedTabs = $selectedTabs . $more;
+        // Handle overflow (show arrows like "← 2" if tabs don't fit, similar to Solo's navigation)
+        $totalTabWidth = array_sum(array_map('mb_strlen', $tabs)) + (count($tabs) - 1) * 3;  // Account for separators
+        if ($totalTabWidth > $width) {
+            // Implement visible window of tabs (e.g., show 5 centered on selected)
+            $visibleCount = max(3, (int)($width / $tabWidth));
+            $start = max(0, $this->selectedPanelIndex - (int)($visibleCount / 2));
+            $end = min(count($tabs), $start + $visibleCount);
+            $visibleTabs = array_slice($tabs, $start, $visibleCount);
+
+            $overflowLeft = $start;
+            $overflowRight = count($tabs) - $end;
+        } else {
+            $visibleTabs = $tabs;
         }
 
-        return $selectedTabs;
+        $tabString = implode($this->theme->dim(' │ '), $visibleTabs);  // Visible separator like Solo
+
+        // Add overflow indicators
+        if ($overflowLeft > 0) {
+            $tabString = $this->theme->tabMore("← $overflowLeft") . ' │ ' . $tabString;
+        }
+        if ($overflowRight > 0) {
+            $tabString .= ' │ ' . $this->theme->tabMore("$overflowRight →");
+        }
+
+        // Pad to full width
+        $cleanLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $tabString));
+        if ($cleanLength < $width) {
+            $tabString .= str_repeat(' ', $width - $cleanLength);
+        }
+
+        return $tabString . "\n" . $this->theme->dim(str_repeat('─', $width)) . "\n";
     }
 
     private function styleTab(Panel $panel, string $display): string
@@ -307,6 +297,69 @@ class Dashboard
         $leftPad = (int)floor($padding / 2);
         
         return str_repeat(' ', $leftPad) . $statusLine . str_repeat(' ', $padding - $leftPad);
+    }
+
+    private function renderContentPane(int $width, int $height): string
+    {
+        $contentWidth = $width - 4;
+        $availableLines = $height - 6; // Total available for content pane
+        
+        $panelContent = $this->getCurrentPanel()->render();
+        $contentLines = explode("\n", trim($panelContent));
+        
+        // Render box top
+        $border = $this->theme->boxBorder('╭') . 
+                  str_repeat($this->theme->boxBorder('─'), $width - 2) . 
+                  $this->theme->boxBorder('╮');
+        
+        $output = $border . "\n";
+        
+        // Add viewing line
+        $totalLines = count($contentLines);
+        $start = 1;
+        $end = min($totalLines, $availableLines - 3); // Account for borders and viewing line
+        
+        $count = "Viewing [$start-$end] of $totalLines";
+        $state = $this->getCurrentPanel()->isPaused() ? '(Paused)' : '(Live)';
+        $stateTreatment = $this->getCurrentPanel()->isPaused() ? 'logsPaused' : 'logsLive';
+        
+        $viewingLine = $this->theme->dim($count) . ' ' . $this->theme->{$stateTreatment}($state);
+        $viewingPadded = $this->theme->boxBorder('│') . ' ' . $viewingLine . str_repeat(' ', $contentWidth - mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $viewingLine))) . ' ' . $this->theme->boxBorder('│');
+        $output .= $viewingPadded . "\n";
+        
+        // Separator
+        $output .= $this->theme->boxBorder('├') . str_repeat($this->theme->boxBorder('─'), $width - 2) . $this->theme->boxBorder('┤') . "\n";
+        
+        // Content lines
+        $lineCount = 0;
+        foreach ($contentLines as $line) {
+            if ($lineCount >= $availableLines - 3) { // Account for top border, viewing, separator, bottom border
+                break;
+            }
+            
+            $cleanLine = preg_replace('/\033\[[0-9;]*m/', '', $line);
+            $lineLen = mb_strlen($cleanLine);
+            
+            if ($lineLen > $contentWidth) {
+                $line = mb_substr($cleanLine, 0, $contentWidth - 3) . '...';
+                $lineLen = $contentWidth;
+            }
+            
+            $padding = max(0, $contentWidth - $lineLen);
+            $output .= $this->theme->boxBorder('│') . ' ' . $line . str_repeat(' ', $padding) . ' ' . $this->theme->boxBorder('│') . "\n";
+            $lineCount++;
+        }
+        
+        // Fill remaining lines
+        while ($lineCount < $availableLines - 3) {
+            $output .= $this->theme->boxBorder('│') . str_repeat(' ', $contentWidth + 2) . $this->theme->boxBorder('│') . "\n";
+            $lineCount++;
+        }
+        
+        // Box bottom border
+        $output .= $this->theme->boxBorder('╰') . str_repeat($this->theme->boxBorder('─'), $width - 2) . $this->theme->boxBorder('╯') . "\n";
+        
+        return $output;
     }
 
     private function renderHotkeyBar(int $width): string

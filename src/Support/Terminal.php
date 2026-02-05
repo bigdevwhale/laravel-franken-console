@@ -101,24 +101,6 @@ class Terminal
     }
 
     /**
-     * Enter alternate screen buffer (like vim does).
-     */
-    public function enterAlternateScreen(): void
-    {
-        echo "\033[?1049h"; // Enter alternate screen
-        echo "\033[2J";     // Clear screen
-        echo "\033[H";      // Move cursor to home
-    }
-
-    /**
-     * Exit alternate screen buffer.
-     */
-    public function exitAlternateScreen(): void
-    {
-        echo "\033[?1049l"; // Exit alternate screen
-    }
-
-    /**
      * Hide the cursor.
      */
     public function hideCursor(): void
@@ -134,9 +116,17 @@ class Terminal
         echo "\033[?25h";
     }
 
-    /**
-     * Clear the screen.
-     */
+    public function enterAlternateScreen(): void
+    {
+        echo "\033[?1049h\033[2J\033[H\033[?25l";  // Enter alt screen, clear, home cursor, hide cursor
+    }
+
+    public function exitAlternateScreen(): void
+    {
+        echo "\033[?25h\033[?1049l";  // Show cursor, exit alt screen
+    }
+
+    // Add this method for explicit clear (call if needed)
     public function clearScreen(): void
     {
         echo "\033[2J\033[H";

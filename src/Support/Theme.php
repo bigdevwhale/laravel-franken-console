@@ -248,6 +248,14 @@ class Theme
     }
 
     /**
+     * Style for box borders (like Solo)
+     */
+    public function boxBorder(string $text): string
+    {
+        return $this->styled($text, 'muted');
+    }
+
+    /**
      * Style for content area
      */
     public function content(): string

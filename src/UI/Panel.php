@@ -204,4 +204,14 @@ abstract class Panel
     {
         return $this->getState('searchMode', false);
     }
+
+    public function isInteractive(): bool
+    {
+        return false; // Override in subclasses
+    }
+
+    public function isPaused(): bool
+    {
+        return false; // Override in subclasses
+    }
 }
