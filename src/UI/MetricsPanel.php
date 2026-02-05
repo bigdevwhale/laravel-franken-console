@@ -39,12 +39,11 @@ class MetricsPanel extends Panel
         
         $metrics = $this->adapter->getMetrics();
         
-        $output = "\n";
-        $output .= '  ' . $this->theme->bold($this->theme->styled('APPLICATION METRICS', 'secondary')) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output = $this->theme->bold($this->theme->styled('APPLICATION METRICS', 'secondary')) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         // Real-time metrics
-        $output .= '  ' . $this->theme->bold('Current Performance') . "\n\n";
+        $output .= $this->theme->bold('Current Performance') . "\n\n";
 
         // Memory usage sparkline
         $output .= "  " . $this->renderMetricRow(

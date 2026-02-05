@@ -38,31 +38,30 @@ class QueuesPanel extends Panel
         $stats = $this->adapter->getQueueStats();
         $this->queues = $stats['queues'];
         
-        $output = "\n";
-        $output .= '  ' . $this->theme->bold($this->theme->styled('QUEUE STATUS', 'secondary')) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output = $this->theme->bold($this->theme->styled('QUEUE STATUS', 'secondary')) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
         
         // Responsive header
         if ($width >= 90) {
-            $output .= '  ' . $this->theme->dim(sprintf(
-                "  %-18s %10s %10s %8s   %-12s",
+            $output .= $this->theme->dim(sprintf(
+                "%-18s %10s %10s %8s   %-12s",
                 'QUEUE', 'PENDING', 'FAILED', 'WORKERS', 'STATUS'
             )) . "\n";
         } elseif ($width >= 60) {
-            $output .= '  ' . $this->theme->dim(sprintf(
-                "  %-14s %8s %8s %-10s",
+            $output .= $this->theme->dim(sprintf(
+                "%-14s %8s %8s %-10s",
                 'QUEUE', 'PEND', 'FAIL', 'STATUS'
             )) . "\n";
         } else {
-            $output .= '  ' . $this->theme->dim(sprintf(
-                "  %-10s %6s %6s",
+            $output .= $this->theme->dim(sprintf(
+                "%-10s %6s %6s",
                 'QUEUE', 'PEND', 'FAIL'
             )) . "\n";
         }
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         if (empty($this->queues)) {
-            $output .= '  ' . $this->theme->dim('  No queues configured') . "\n";
+            $output .= $this->theme->dim('No queues configured') . "\n";
         } else {
             $visibleCount = $this->getVisibleQueueCount();
             $start = $this->scrollOffset;
@@ -88,7 +87,7 @@ class QueuesPanel extends Panel
 
                 if ($width >= 90) {
                     $output .= sprintf(
-                        " %s %-18s %10s %10s %8s   %s %s\n",
+                        "%s %-18s %10s %10s %8s   %s %s\n",
                         $marker,
                         $queueName,
                         $this->theme->styled((string)$queue['size'], $sizeColor),
@@ -99,7 +98,7 @@ class QueuesPanel extends Panel
                     );
                 } elseif ($width >= 60) {
                     $output .= sprintf(
-                        " %s %-14s %8s %8s %s %s\n",
+                        "%s %-14s %8s %8s %s %s\n",
                         $marker,
                         $queueName,
                         $this->theme->styled((string)$queue['size'], $sizeColor),
@@ -109,7 +108,7 @@ class QueuesPanel extends Panel
                     );
                 } else {
                     $output .= sprintf(
-                        " %s %-10s %6s %6s\n",
+                        "%s %-10s %6s %6s\n",
                         $marker,
                         substr($queueName, 0, 10),
                         $this->theme->styled((string)$queue['size'], $sizeColor),
@@ -120,7 +119,7 @@ class QueuesPanel extends Panel
             
             // Page indicator if there are multiple pages
             if ($totalPages > 1) {
-                $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+                $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
                 $pageInfo = $this->theme->dim('Page ') . 
                            $this->theme->styled((string)$currentPage, 'info') . 
                            $this->theme->dim('/') . 
@@ -128,7 +127,7 @@ class QueuesPanel extends Panel
                            $this->theme->dim(' (') .
                            $this->theme->styled((string)count($this->queues), 'info') .
                            $this->theme->dim(' queues)');
-                $output .= '  ' . $pageInfo . "\n";
+                $output .= $pageInfo . "\n";
             }
         }
 

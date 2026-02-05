@@ -51,9 +51,8 @@ class SchedulerPanel extends Panel
         
         $this->scheduledTasks = $this->getScheduledTasks();
         
-        $output = "\n";
-        $output .= '  ' . $this->theme->bold($this->theme->styled('TASK SCHEDULER', 'secondary')) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output = $this->theme->bold($this->theme->styled('TASK SCHEDULER', 'secondary')) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         // Status section (compact if height is limited)
         $isRunning = $this->isSchedulerRunning();

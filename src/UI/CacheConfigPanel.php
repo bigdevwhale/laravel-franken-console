@@ -48,9 +48,8 @@ class CacheConfigPanel extends Panel
         
         $stats = $this->adapter->getCacheStats();
         
-        $output = "\n";
-        $output .= '  ' . $this->theme->bold($this->theme->styled('CACHE CONFIGURATION', 'secondary')) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output = $this->theme->bold($this->theme->styled('CACHE CONFIGURATION', 'secondary')) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         // Current cache info (compact if limited height)
         if ($width >= 80) {

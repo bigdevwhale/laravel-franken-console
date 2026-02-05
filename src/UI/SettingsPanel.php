@@ -43,10 +43,9 @@ class SettingsPanel extends Panel
         
         $config = config('franken', []);
         
-        $output = "\n";
-        $output .= '  ' . $this->theme->bold($this->theme->styled('SETTINGS', 'secondary')) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
-        $output .= '  ' . $this->theme->bold('Current Configuration') . "\n";
+        $output = $this->theme->bold($this->theme->styled('SETTINGS', 'secondary')) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output .= $this->theme->bold('Current Configuration') . "\n";
 
         $settings = [
             ['Polling Interval', ($config['polling_interval'] ?? 2) . 's', 'Refresh interval'],
@@ -61,11 +60,11 @@ class SettingsPanel extends Panel
                 $setting[0];
             
             if ($width >= 80) {
-                $output .= sprintf(" %s %-20s %s  %s\n",
+                $output .= sprintf("%s %-20s %s  %s\n",
                     $marker, $name . ':', $this->theme->styled($setting[1], 'info'), $this->theme->dim($setting[2])
                 );
             } else {
-                $output .= sprintf(" %s %-16s %s\n",
+                $output .= sprintf("%s %-16s %s\n",
                     $marker, $name . ':', $this->theme->styled($setting[1], 'info')
                 );
             }
@@ -73,8 +72,8 @@ class SettingsPanel extends Panel
 
         // Keybindings (only if there's room)
         if ($height >= 18) {
-            $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
-            $output .= '  ' . $this->theme->bold('Keybindings') . "\n";
+            $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+            $output .= $this->theme->bold('Keybindings') . "\n";
 
             $keybindings = $config['keybindings'] ?? [];
             $displayKeys = [
@@ -87,7 +86,6 @@ class SettingsPanel extends Panel
 
             if ($width >= 70) {
                 // Horizontal layout
-                $output .= '  ';
                 foreach ($displayKeys as $keyInfo) {
                     $binding = $keybindings[$keyInfo[0]] ?? $keyInfo[2];
                     $output .= $this->theme->styled('[' . $binding . ']', 'primary') . ' ' . $this->theme->dim($keyInfo[1]) . '  ';
@@ -97,13 +95,12 @@ class SettingsPanel extends Panel
                 // Compact grid
                 $perRow = 3;
                 $count = 0;
-                $output .= '  ';
                 foreach ($displayKeys as $keyInfo) {
                     $binding = $keybindings[$keyInfo[0]] ?? $keyInfo[2];
                     $output .= $this->theme->styled('[' . $binding . ']', 'primary') . $this->theme->dim($keyInfo[1]) . ' ';
                     $count++;
                     if ($count % $perRow === 0) {
-                        $output .= "\n  ";
+                        $output .= "\n";
                     }
                 }
                 $output .= "\n";
@@ -112,8 +109,8 @@ class SettingsPanel extends Panel
 
         // Panel shortcuts (only if there's room)
         if ($height >= 22) {
-            $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
-            $output .= '  ' . $this->theme->bold('Panel Shortcuts') . "\n";
+            $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+            $output .= $this->theme->bold('Panel Shortcuts') . "\n";
 
             $panels = [
                 ['1', 'Overview'], ['2', 'Queues'], ['3', 'Jobs'], ['4', 'Logs'], ['5', 'Cache'],
@@ -121,13 +118,11 @@ class SettingsPanel extends Panel
             ];
 
             if ($width >= 80) {
-                $output .= '  ';
                 foreach ($panels as $panel) {
                     $output .= $this->theme->styled('[' . $panel[0] . ']', 'primary') . ' ' . $panel[1] . '  ';
                 }
                 $output .= "\n";
             } else {
-                $output .= '  ';
                 foreach ($panels as $panel) {
                     $output .= $this->theme->styled($panel[0], 'primary') . ':' . substr($panel[1], 0, 3) . ' ';
                 }
@@ -137,10 +132,10 @@ class SettingsPanel extends Panel
 
         // About section (only if there's room)
         if ($height >= 26) {
-            $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
-            $output .= '  ' . $this->theme->bold('About') . "\n";
+            $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+            $output .= $this->theme->bold('About') . "\n";
             
-            $output .= '  ' . $this->theme->styled('Franken-Console', 'primary') . ' v1.0.0';
+            $output .= $this->theme->styled('Franken-Console', 'primary') . ' v1.0.0';
             $output .= ' | PHP ' . PHP_VERSION;
             
             try {

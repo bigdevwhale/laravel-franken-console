@@ -119,8 +119,8 @@ class Dashboard
         $height = max(15, min(100, $height));
 
         // Update panel dimensions - content area is smaller due to borders
-        $contentWidth = $width - 4;  // 2 for left border+space, 2 for space+right border
-        $contentHeight = $height - 5; // tabs, top border, bottom border, hotkeys, buffer
+        $contentWidth = $width - 4;  // Account for borders and padding
+        $contentHeight = $height - 6; // Reserve: tabs(1) + status(1) + top border(1) + bottom border(1) + hotkeys(1) + buffer(1)
         foreach ($this->panels as $panel) {
             $panel->setDimensions($contentWidth, $contentHeight);
         }
@@ -129,50 +129,52 @@ class Dashboard
         $output = '';
 
         // Line 0: Tab bar
-        $output .= $this->renderTabBar($width) . "\033[K\n";
+        $output .= $this->renderTabBar($width) . "\n";
 
-        // Line 1: Box top border
-        $boxColor = $this->theme->dim('');
-        $output .= $this->theme->dim('╭' . str_repeat('─', $width - 2) . '╮') . "\033[K\n";
+        // Line 1: Process status line
+        $output .= $this->renderProcessState($width) . "\n";
 
-        // Panel content inside the box
+        // Line 2: Box top border
+        $output .= $this->theme->dim('╭' . str_repeat('─', $width - 2) . '╮') . "\n";
+
+        // Content pane (lines 3 to height-4)
         $panelContent = $this->getCurrentPanel()->render();
-        $panelLines = explode("\n", $panelContent);
-        $availableLines = $height - 5; // Reserve: tabs, top border, bottom border, hotkeys, buffer
+        $contentLines = explode("\n", trim($panelContent)); // Trim to remove trailing newline
         
+        $availableLines = $height - 6; // Total height minus: tabs(1) + status(1) + top border(1) + bottom border(1) + hotkeys(1) + buffer(1)
         $lineCount = 0;
-        foreach ($panelLines as $line) {
+        
+        foreach ($contentLines as $line) {
             if ($lineCount >= $availableLines) {
                 break;
             }
             
-            // Clean line to measure length
+            // Clean line and truncate if needed
             $cleanLine = preg_replace('/\033\[[0-9;]*m/', '', $line);
             $lineLen = mb_strlen($cleanLine);
             
-            // Truncate if needed
-            if ($lineLen > $width - 4) {
-                $line = mb_substr($cleanLine, 0, $width - 7) . '...';
-                $lineLen = $width - 4;
+            if ($lineLen > $contentWidth) {
+                $line = mb_substr($cleanLine, 0, $contentWidth - 3) . '...';
+                $lineLen = $contentWidth;
             }
             
-            // Add left border, content, padding, right border
-            $padding = max(0, $width - 4 - $lineLen);
-            $output .= $this->theme->dim('│') . ' ' . $line . str_repeat(' ', $padding) . ' ' . $this->theme->dim('│') . "\033[K\n";
+            // Add left border, content with padding, right border
+            $padding = max(0, $contentWidth - $lineLen);
+            $output .= $this->theme->dim('│') . ' ' . $line . str_repeat(' ', $padding) . ' ' . $this->theme->dim('│') . "\n";
             $lineCount++;
         }
 
-        // Fill remaining content lines with empty bordered rows
+        // Fill remaining content lines
         while ($lineCount < $availableLines) {
-            $output .= $this->theme->dim('│') . str_repeat(' ', $width - 2) . $this->theme->dim('│') . "\033[K\n";
+            $output .= $this->theme->dim('│') . str_repeat(' ', $contentWidth + 2) . $this->theme->dim('│') . "\n";
             $lineCount++;
         }
 
         // Box bottom border
-        $output .= $this->theme->dim('╰' . str_repeat('─', $width - 2) . '╯') . "\033[K\n";
+        $output .= $this->theme->dim('╰' . str_repeat('─', $width - 2) . '╯') . "\n";
 
         // Hotkey bar
-        $output .= $this->renderHotkeyBar($width) . "\033[K";
+        $output .= $this->renderHotkeyBar($width);
 
         return $output;
     }
@@ -274,12 +276,28 @@ class Dashboard
         return [++$left, --$right];
     }
 
-    private function styleTab(Panel $panel, string $name): string
+    private function renderProcessState(int $width): string
     {
-        $state = $panel->getStatus();
-        return $panel->isFocused() 
-            ? $this->theme->tabFocused($name, $state) 
-            : $this->theme->tabBlurred($name, $state);
+        $currentPanel = $this->getCurrentPanel();
+        $panelName = $currentPanel->getName();
+        $status = $currentPanel->getStatus();
+        
+        $statusText = match($status) {
+            'running', 'focused' => $this->theme->processRunning('Running:'),
+            'stopped' => $this->theme->processStopped('Stopped:'),
+            'paused' => $this->theme->logsPaused('Paused:'),
+            default => $this->theme->dim('Status:'),
+        };
+        
+        $panelInfo = $this->theme->styled($panelName, 'secondary');
+        
+        // Center the status line
+        $statusLine = $statusText . ' ' . $panelInfo;
+        $statusLen = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $statusLine));
+        $padding = max(0, $width - $statusLen);
+        $leftPad = (int)floor($padding / 2);
+        
+        return str_repeat(' ', $leftPad) . $statusLine . str_repeat(' ', $padding - $leftPad);
     }
 
     private function renderHotkeyBar(int $width): string
@@ -298,10 +316,16 @@ class Dashboard
             $hotkeyString .= $this->theme->hotkey($key) . ' ' . $this->theme->hotkeyLabel($label) . '  ';
         }
 
-        // Center the hotkey bar
+        // Truncate if too long
         $cleanLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $hotkeyString));
-        if ($cleanLength < $width) {
-            $padding = ($width - $cleanLength) / 2;
+        if ($cleanLength > $width) {
+            $hotkeyString = mb_substr($hotkeyString, 0, $width - 3) . '...';
+        }
+
+        // Center the hotkey bar
+        $finalLength = mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $hotkeyString));
+        if ($finalLength < $width) {
+            $padding = ($width - $finalLength) / 2;
             $hotkeyString = str_repeat(' ', (int) floor($padding)) . $hotkeyString;
         }
 

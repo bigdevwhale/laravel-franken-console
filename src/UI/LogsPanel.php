@@ -53,8 +53,7 @@ class LogsPanel extends Panel
         $lineWidth = max(40, $width - 4);
         $maxMsgLen = max(20, $width - 30);
 
-        $output = "\n";
-        $output .= '  ' . $this->theme->bold($this->theme->styled('LOGS', 'secondary'));
+        $output = $this->theme->bold($this->theme->styled('LOGS', 'secondary'));
         
         if ($this->searchMode) {
             $output .= '  ' . $this->theme->styled('/', 'primary') . 
@@ -63,22 +62,22 @@ class LogsPanel extends Panel
         }
         
         $output .= "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         // Column headers - responsive
         if ($width >= 80) {
-            $output .= '  ' . $this->theme->dim(sprintf("  %-10s %-7s %s", 'TIME', 'LEVEL', 'MESSAGE')) . "\n";
+            $output .= $this->theme->dim(sprintf("%-10s %-7s %s", 'TIME', 'LEVEL', 'MESSAGE')) . "\n";
         } else {
-            $output .= '  ' . $this->theme->dim(sprintf("  %-8s %-5s %s", 'TIME', 'LVL', 'MESSAGE')) . "\n";
+            $output .= $this->theme->dim(sprintf("%-8s %-5s %s", 'TIME', 'LVL', 'MESSAGE')) . "\n";
         }
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         $visibleLines = $this->getVisibleLines();
         $start = max(0, $this->scrollOffset);
         $end = min(count($this->filteredLogs), $start + $visibleLines);
 
         if (empty($this->filteredLogs)) {
-            $output .= "\n" . '  ' . $this->theme->dim('  No logs found');
+            $output .= "\n" . $this->theme->dim('No logs found');
             if ($this->searchMode) {
                 $output .= $this->theme->dim(" matching '") . 
                            $this->theme->styled($this->searchQuery, 'warning') . 
@@ -109,7 +108,7 @@ class LogsPanel extends Panel
                 $timestamp = $this->formatTimestamp($log['timestamp']);
 
                 $output .= sprintf(
-                    "  %s %-8s %s %s\n",
+                    "%s %-8s %s %s\n",
                     $marker,
                     $this->theme->dim($timestamp),
                     $this->theme->styled($levelBadge, $levelColor),
@@ -119,7 +118,7 @@ class LogsPanel extends Panel
         }
 
         // Status bar with page numbers
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
         
         $totalLogs = count($this->filteredLogs);
         $visibleLines = $this->getVisibleLines();
@@ -144,18 +143,16 @@ class LogsPanel extends Panel
             $scrollIndicators .= ' ' . $this->theme->dim('↓');
         }
 
-        $output .= '  ' . $pageInfo . $countInfo . $scrollIndicators . "\n";
+        $output .= $pageInfo . $countInfo . $scrollIndicators . "\n";
         
         // Responsive help line (only if there's room)
         if ($this->terminalHeight >= 15) {
             if ($width >= 80) {
-                $output .= '  ' .
-                       $this->theme->styled('/', 'secondary') . $this->theme->dim('Search ') .
+                $output .= $this->theme->styled('/', 'secondary') . $this->theme->dim('Search ') .
                        $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Nav ') .
                        $this->theme->styled('PgUp/Dn', 'secondary') . $this->theme->dim('Page') . "\n";
             } else {
-                $output .= '  ' .
-                       $this->theme->styled('/', 'secondary') . $this->theme->dim('Srch ') .
+                $output .= $this->theme->styled('/', 'secondary') . $this->theme->dim('Srch ') .
                        $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Nav') . "\n";
             }
         }

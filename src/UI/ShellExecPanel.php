@@ -52,12 +52,11 @@ class ShellExecPanel extends Panel
         $height = $this->terminalHeight;
         $lineWidth = max(40, $width - 4);
         
-        $output = "\n";
-        $output .= '  ' . $this->theme->bold($this->theme->styled('ARTISAN SHELL', 'secondary')) . "\n";
-        $output .= '  ' . $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
+        $output = $this->theme->bold($this->theme->styled('ARTISAN SHELL', 'secondary')) . "\n";
+        $output .= $this->theme->dim(str_repeat('─', $lineWidth)) . "\n";
 
         // Quick command buttons (responsive)
-        $output .= '  ' . $this->theme->bold('Quick Commands') . "\n";
+        $output .= $this->theme->bold('Quick Commands') . "\n";
 
         $quickCommands = [
             ['1', 'list', 'All commands'],

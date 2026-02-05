@@ -24,7 +24,7 @@ class OverviewPanel extends Panel
         $width = $this->getWidth();
         $height = $this->getHeight();
         
-        $output = "\n";
+        $output = '';
         
         // Header
         $output .= $this->renderHeader($width);
