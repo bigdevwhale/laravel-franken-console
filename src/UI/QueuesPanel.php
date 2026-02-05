@@ -7,40 +7,32 @@ namespace Franken\Console\UI;
 use Franken\Console\Adapters\QueueAdapter;
 use Franken\Console\Support\Theme;
 
-class QueuesPanel
+class QueuesPanel extends Panel
 {
     private Theme $theme;
     private int $selectedIndex = 0;
     private int $scrollOffset = 0;
     private array $queues = [];
-    private int $terminalHeight = 24;
-    private int $terminalWidth = 80;
 
-    public function __construct(private QueueAdapter $adapter)
+    public function __construct(string $name = 'Queues', ?QueueAdapter $adapter = null)
     {
+        parent::__construct($name);
         $this->theme = new Theme();
+        $this->adapter = $adapter;
     }
 
-    public function setTerminalHeight(int $height): void
-    {
-        $this->terminalHeight = $height;
-    }
-
-    public function setTerminalWidth(int $width): void
-    {
-        $this->terminalWidth = $width;
-    }
+    private ?QueueAdapter $adapter;
 
     private function getVisibleQueueCount(): int
     {
         // Reserve lines for headers, workers section, help
-        return max(2, (int)(($this->terminalHeight - 15) / 2));
+        return max(2, (int)(($this->getHeight() - 15) / 2));
     }
 
     public function render(): string
     {
-        $width = $this->terminalWidth;
-        $height = $this->terminalHeight;
+        $width = $this->getWidth();
+        $height = $this->getHeight();
         $lineWidth = max(40, $width - 4);
         
         $stats = $this->adapter->getQueueStats();

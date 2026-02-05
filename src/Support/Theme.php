@@ -149,4 +149,127 @@ class Theme
         return $this->styled(str_repeat('█', $filled), $color) . 
                $this->styled(str_repeat('░', $empty), 'muted');
     }
+
+    // ========================================
+    // Tab styling methods (Solo-style)
+    // ========================================
+
+    /**
+     * Style for a focused (active) tab
+     */
+    public function tabFocused(string $text, string $state): string
+    {
+        $indicator = $this->tabIndicator($state);
+        
+        return "\033[40m" . $indicator . "\033[37m" . ltrim($text) . "\033[0m"; // Black bg, white text
+    }
+
+    /**
+     * Style for a blurred (inactive) tab
+     */
+    public function tabBlurred(string $text, string $state): string
+    {
+        return $this->tabIndicator($state) . $this->dim(ltrim($text));
+    }
+
+    /**
+     * Style for tab overflow indicators (like "← 2" or "3 →")
+     */
+    public function tabMore(string $text): string
+    {
+        return $this->dim($text);
+    }
+
+    /**
+     * Generate tab state indicator (dot with color)
+     */
+    public function tabIndicator(string $state): string
+    {
+        return match ($state) {
+            'running', 'focused' => $this->styled('●', 'success') . ' ',
+            'stopped' => $this->styled('●', 'error') . ' ',
+            'paused' => $this->styled('●', 'warning') . ' ',
+            default => $this->styled('●', 'muted') . ' ',
+        };
+    }
+
+    // ========================================
+    // Process/Content styling methods
+    // ========================================
+
+    /**
+     * Style for stopped process indicator
+     */
+    public function processStopped(string $text): string
+    {
+        return $this->styled($text, 'error');
+    }
+
+    /**
+     * Style for running process indicator
+     */
+    public function processRunning(string $text): string
+    {
+        return $this->styled($text, 'success');
+    }
+
+    /**
+     * Style for paused logs
+     */
+    public function logsPaused(string $text): string
+    {
+        return $this->styled($text, 'warning');
+    }
+
+    /**
+     * Style for live logs
+     */
+    public function logsLive(string $text): string
+    {
+        return $this->dim($text);
+    }
+
+    // ========================================
+    // UI component styling methods
+    // ========================================
+
+    /**
+     * Style for hotkey indicators
+     */
+    public function hotkey(string $text): string
+    {
+        return $this->styled($text, 'primary');
+    }
+
+    /**
+     * Style for hotkey labels
+     */
+    public function hotkeyLabel(string $text): string
+    {
+        return $this->styled($text, 'muted');
+    }
+
+    /**
+     * Style for border elements
+     */
+    public function border(): string
+    {
+        return $this->color('muted');
+    }
+
+    /**
+     * Style for content area
+     */
+    public function content(): string
+    {
+        return $this->color('foreground');
+    }
+
+    /**
+     * Style for status indicators
+     */
+    public function status(): string
+    {
+        return $this->color('info');
+    }
 }

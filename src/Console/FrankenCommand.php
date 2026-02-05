@@ -165,70 +165,70 @@ class FrankenCommand extends Command
             case $quitKey:
                 return true; // Quit
             case $refreshKey:
-                $this->render();
+                $this->needsRender = true;
                 break;
             case '1':
                 $this->dashboard->switchPanel('overview');
-                $this->render();
+                $this->needsRender = true;
                 break;
             case '2':
                 $this->dashboard->switchPanel('queues');
-                $this->render();
+                $this->needsRender = true;
                 break;
             case '3':
                 $this->dashboard->switchPanel('jobs');
-                $this->render();
+                $this->needsRender = true;
                 break;
             case '4':
                 $this->dashboard->switchPanel('logs');
-                $this->render();
+                $this->needsRender = true;
                 break;
             case '5':
                 $this->dashboard->switchPanel('cache');
-                $this->render();
+                $this->needsRender = true;
                 break;
             case '6':
                 $this->dashboard->switchPanel('scheduler');
-                $this->render();
+                $this->needsRender = true;
                 break;
             case '7':
                 $this->dashboard->switchPanel('metrics');
-                $this->render();
+                $this->needsRender = true;
                 break;
             case '8':
                 $this->dashboard->switchPanel('shell');
-                $this->render();
+                $this->needsRender = true;
                 break;
             case '9':
                 $this->dashboard->switchPanel('settings');
-                $this->render();
+                $this->needsRender = true;
                 break;
             case $clearCacheKey:
                 $this->cacheAdapter->clearCache();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case $restartWorkerKey:
                 $this->queueAdapter->restartWorker();
                 $this->queueAdapter->invalidateCache();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case $searchLogsKey:
                 $this->dashboard->enterSearchMode();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case $navDownKey:
                 $this->dashboard->navigateDown();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case $navUpKey:
                 $this->dashboard->navigateUp();
-                $this->render();
+                $this->needsRender = true;
                 break;
             default:
                 // Handle search input if in search mode
                 if ($this->dashboard->isInSearchMode()) {
                     $this->handleSearchInput($key);
-                    $this->render();
+                    $this->needsRender = true;
                 }
                 break;
         }
@@ -242,50 +242,50 @@ class FrankenCommand extends Command
         switch ($key) {
             case "\033[A": // Up arrow
                 $this->dashboard->navigateUp();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case "\033[B": // Down arrow
                 $this->dashboard->navigateDown();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case "\033[D": // Left arrow - previous tab
                 $this->dashboard->previousPanel();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case "\033[C": // Right arrow - next tab
                 $this->dashboard->nextPanel();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case "\033[5~": // Page Up
                 $this->dashboard->pageUp();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case "\033[6~": // Page Down
                 $this->dashboard->pageDown();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case "\033[H": // Home
             case "\033[1~": // Home (alternate)
                 $this->dashboard->scrollToTop();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case "\033[F": // End
             case "\033[4~": // End (alternate)
                 $this->dashboard->scrollToBottom();
-                $this->render();
+                $this->needsRender = true;
                 break;
             case "\177": // Backspace (escape sequence)
             case "\b":   // Backspace (direct)
             case "\x7f": // Delete
                 if ($this->dashboard->isInSearchMode()) {
                     $this->dashboard->removeSearchChar();
-                    $this->render();
+                    $this->needsRender = true;
                 }
                 break;
             case "\033": // Escape key alone
                 if ($this->dashboard->isInSearchMode()) {
                     $this->dashboard->exitSearchMode();
-                    $this->render();
+                    $this->needsRender = true;
                 }
                 break;
         }

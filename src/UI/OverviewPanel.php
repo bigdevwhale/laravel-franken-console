@@ -7,23 +7,22 @@ namespace Franken\Console\UI;
 use Franken\Console\Support\Terminal;
 use Franken\Console\Support\Theme;
 
-class OverviewPanel
+class OverviewPanel extends Panel
 {
     private Theme $theme;
-    private Terminal $terminal;
     private float $startTime;
 
-    public function __construct(?Terminal $terminal = null)
+    public function __construct(string $name = 'Overview', ?Terminal $terminal = null)
     {
+        parent::__construct($name, $terminal);
         $this->theme = new Theme();
-        $this->terminal = $terminal ?? new Terminal();
         $this->startTime = microtime(true);
     }
 
     public function render(): string
     {
-        $width = $this->terminal->getWidth();
-        $height = $this->terminal->getHeight();
+        $width = $this->getWidth();
+        $height = $this->getHeight();
         
         $output = "\n";
         

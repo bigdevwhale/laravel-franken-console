@@ -7,17 +7,20 @@ namespace Franken\Console\UI;
 use Franken\Console\Adapters\QueueAdapter;
 use Franken\Console\Support\Theme;
 
-class JobsPanel
+class JobsPanel extends Panel
 {
     private Theme $theme;
     private int $scrollOffset = 0;
     private int $selectedIndex = 0;
     private array $jobs = [];
-    private int $terminalHeight = 24;
-    private int $terminalWidth = 80;
+    private QueueAdapter $adapter;
 
-    public function __construct(private QueueAdapter $adapter)
+    public function __construct(string $name = 'Jobs', ?QueueAdapter $adapter = null)
     {
+        parent::__construct($name);
+        $this->adapter = $adapter;
+        $this->theme = new Theme();
+    }
         $this->theme = new Theme();
     }
 
