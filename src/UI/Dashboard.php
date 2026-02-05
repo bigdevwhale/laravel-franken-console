@@ -308,9 +308,9 @@ class Dashboard
         $contentLines = explode("\n", trim($panelContent));
         
         // Render box top
-        $border = $this->theme->boxBorder('╭') . 
-                  str_repeat($this->theme->boxBorder('─'), $width - 2) . 
-                  $this->theme->boxBorder('╮');
+        $border = $this->theme->boxBorder('+') . 
+                  str_repeat($this->theme->boxBorder('-'), $width - 2) . 
+                  $this->theme->boxBorder('+');
         
         $output = $border . "\n";
         
@@ -330,18 +330,18 @@ class Dashboard
             }
             
             $padding = max(0, $contentWidth - $lineLen);
-            $output .= $this->theme->boxBorder('│') . ' ' . $line . str_repeat(' ', $padding) . ' ' . $this->theme->boxBorder('│') . "\n";
+            $output .= $this->theme->boxBorder('|') . ' ' . $line . str_repeat(' ', $padding) . ' ' . $this->theme->boxBorder('|') . "\n";
             $lineCount++;
         }
         
         // Fill remaining lines
         while ($lineCount < $availableLines) {
-            $output .= $this->theme->boxBorder('│') . str_repeat(' ', $contentWidth + 2) . $this->theme->boxBorder('│') . "\n";
+            $output .= $this->theme->boxBorder('|') . str_repeat(' ', $contentWidth + 2) . $this->theme->boxBorder('|') . "\n";
             $lineCount++;
         }
         
         // Box bottom border
-        $output .= $this->theme->boxBorder('╰') . str_repeat($this->theme->boxBorder('─'), $width - 2) . $this->theme->boxBorder('╯') . "\n";
+        $output .= $this->theme->boxBorder('+') . str_repeat($this->theme->boxBorder('-'), $width - 2) . $this->theme->boxBorder('+') . "\n";
         
         return $output;
     }
