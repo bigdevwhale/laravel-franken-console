@@ -118,9 +118,11 @@ class Dashboard
         $width = max(60, min(300, $width));
         $height = max(15, min(100, $height));
 
-        // Update panel dimensions
+        // Update panel dimensions - content area is smaller due to borders
+        $contentWidth = $width - 4;  // 2 for left border+space, 2 for space+right border
+        $contentHeight = $height - 5; // tabs, top border, bottom border, hotkeys, buffer
         foreach ($this->panels as $panel) {
-            $panel->setDimensions($width, $height);
+            $panel->setDimensions($contentWidth, $contentHeight);
         }
 
         // Build output
@@ -128,14 +130,15 @@ class Dashboard
 
         // Line 0: Tab bar
         $output .= $this->renderTabBar($width) . "\033[K\n";
-        
-        // Line 1: Separator
-        $output .= $this->theme->dim(str_repeat('─', $width)) . "\033[K\n";
 
-        // Panel content (reserve 4 lines: tabs + separator + hotkeys + final line)
+        // Line 1: Box top border
+        $boxColor = $this->theme->dim('');
+        $output .= $this->theme->dim('╭' . str_repeat('─', $width - 2) . '╮') . "\033[K\n";
+
+        // Panel content inside the box
         $panelContent = $this->getCurrentPanel()->render();
         $panelLines = explode("\n", $panelContent);
-        $availableLines = $height - 4;
+        $availableLines = $height - 5; // Reserve: tabs, top border, bottom border, hotkeys, buffer
         
         $lineCount = 0;
         foreach ($panelLines as $line) {
@@ -143,21 +146,30 @@ class Dashboard
                 break;
             }
             
-            // Clean and truncate line
+            // Clean line to measure length
             $cleanLine = preg_replace('/\033\[[0-9;]*m/', '', $line);
-            if (mb_strlen($cleanLine) > $width) {
-                $line = mb_substr($cleanLine, 0, $width - 3) . '...';
+            $lineLen = mb_strlen($cleanLine);
+            
+            // Truncate if needed
+            if ($lineLen > $width - 4) {
+                $line = mb_substr($cleanLine, 0, $width - 7) . '...';
+                $lineLen = $width - 4;
             }
             
-            $output .= $line . "\033[K\n";
+            // Add left border, content, padding, right border
+            $padding = max(0, $width - 4 - $lineLen);
+            $output .= $this->theme->dim('│') . ' ' . $line . str_repeat(' ', $padding) . ' ' . $this->theme->dim('│') . "\033[K\n";
             $lineCount++;
         }
 
-        // Fill remaining lines
+        // Fill remaining content lines with empty bordered rows
         while ($lineCount < $availableLines) {
-            $output .= "\033[K\n";
+            $output .= $this->theme->dim('│') . str_repeat(' ', $width - 2) . $this->theme->dim('│') . "\033[K\n";
             $lineCount++;
         }
+
+        // Box bottom border
+        $output .= $this->theme->dim('╰' . str_repeat('─', $width - 2) . '╯') . "\033[K\n";
 
         // Hotkey bar
         $output .= $this->renderHotkeyBar($width) . "\033[K";
@@ -183,17 +195,17 @@ class Dashboard
         $selectedTabs = $tabs
             ->slice($start, $end - $start + 1)
             ->map(fn($tab) => $this->styleTab($tab['panel'], $tab['display']))
-            ->implode('');
+            ->implode(' ');
 
         // Add overflow indicators if needed
         if ($start > 0) {
-            $more = $this->theme->tabMore(" ← {$start} ");
+            $more = $this->theme->tabMore("(← {$start}) ");
             $selectedTabs = $more . $selectedTabs;
         }
 
         if ($end < $tabs->count() - 1) {
             $remaining = $tabs->count() - 1 - $end;
-            $more = $this->theme->tabMore(" {$remaining} → ");
+            $more = $this->theme->tabMore(" ({$remaining} →)");
             $selectedTabs = $selectedTabs . $more;
         }
 

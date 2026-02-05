@@ -311,10 +311,9 @@ class FrankenCommand extends Command
         // This handles resize events properly
         $this->terminal->refreshDimensions();
 
-        // Reset all terminal state and position
-        echo "\033[H";      // Move cursor to home (1,1)
-        echo "\033[2J";     // Clear entire screen
-        echo "\033[H";      // Move cursor to home again (ensure position)
+        // Move cursor to home position (no clear - prevents flicker)
+        echo "\033[H";
+        echo "\033[0m";  // Reset all attributes
 
         $output = $this->dashboard->render();
         echo $output;

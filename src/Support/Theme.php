@@ -161,7 +161,8 @@ class Theme
     {
         $indicator = $this->tabIndicator($state);
         
-        return "\033[40m" . $indicator . "\033[37m" . ltrim($text) . "\033[0m"; // Black bg, white text
+        // White background with black text for focused tab (high contrast)
+        return "\033[47;30m" . $indicator . ltrim($text) . "\033[0m";
     }
 
     /**
@@ -169,7 +170,8 @@ class Theme
      */
     public function tabBlurred(string $text, string $state): string
     {
-        return $this->tabIndicator($state) . $this->dim(ltrim($text));
+        $indicator = $this->tabIndicator($state);
+        return $indicator . $this->dim(ltrim($text));
     }
 
     /**
@@ -186,10 +188,10 @@ class Theme
     public function tabIndicator(string $state): string
     {
         return match ($state) {
-            'running', 'focused' => $this->styled('●', 'success') . ' ',
-            'stopped' => $this->styled('●', 'error') . ' ',
-            'paused' => $this->styled('●', 'warning') . ' ',
-            default => $this->styled('●', 'muted') . ' ',
+            'running', 'focused' => $this->styled('•', 'success'),
+            'stopped' => $this->styled('•', 'error'),
+            'paused' => $this->styled('•', 'warning'),
+            default => $this->styled('•', 'muted'),
         };
     }
 
