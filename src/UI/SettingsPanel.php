@@ -6,16 +6,23 @@ namespace Franken\Console\UI;
 
 use Franken\Console\Support\Theme;
 
-class SettingsPanel
+class SettingsPanel extends Panel
 {
     private Theme $theme;
     private int $selectedSetting = 0;
     private int $terminalHeight = 24;
     private int $terminalWidth = 80;
 
-    public function __construct()
+    public function __construct(string $name = 'Settings')
     {
+        parent::__construct($name);
         $this->theme = new Theme();
+    }
+
+    protected function onDimensionsChanged(int $width, int $height): void
+    {
+        $this->terminalWidth = $width;
+        $this->terminalHeight = $height;
     }
 
     public function setTerminalHeight(int $height): void

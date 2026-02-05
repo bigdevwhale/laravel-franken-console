@@ -6,7 +6,7 @@ namespace Franken\Console\UI;
 
 use Franken\Console\Support\Theme;
 
-class ShellExecPanel
+class ShellExecPanel extends Panel
 {
     private Theme $theme;
     private string $commandInput = '';
@@ -18,9 +18,16 @@ class ShellExecPanel
     private int $terminalHeight = 24;
     private int $terminalWidth = 80;
 
-    public function __construct()
+    public function __construct(string $name = 'Shell')
     {
+        parent::__construct($name);
         $this->theme = new Theme();
+    }
+
+    protected function onDimensionsChanged(int $width, int $height): void
+    {
+        $this->terminalWidth = $width;
+        $this->terminalHeight = $height;
     }
 
     public function setTerminalHeight(int $height): void

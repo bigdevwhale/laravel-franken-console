@@ -67,30 +67,39 @@ class FrankenCommandTest extends TestCase
         $terminal = new Terminal();
 
         $overview = new OverviewPanel('Overview', $terminal);
+        $overview->setDimensions(80, 24);
         $this->assertIsString($overview->render());
 
         $queues = new QueuesPanel('Queues', $queueAdapter);
+        $queues->setDimensions(80, 24);
         $this->assertIsString($queues->render());
 
         $jobs = new JobsPanel('Jobs', $queueAdapter);
+        $jobs->setDimensions(80, 24);
         $this->assertIsString($jobs->render());
 
         $logs = new LogsPanel('Logs', $logAdapter);
+        $logs->setDimensions(80, 24);
         $this->assertIsString($logs->render());
 
         $cache = new CacheConfigPanel('Cache', $cacheAdapter);
+        $cache->setDimensions(80, 24);
         $this->assertIsString($cache->render());
 
         $scheduler = new SchedulerPanel('Scheduler');
+        $scheduler->setDimensions(80, 24);
         $this->assertIsString($scheduler->render());
 
         $metrics = new MetricsPanel('Metrics', $metricsAdapter);
+        $metrics->setDimensions(80, 24);
         $this->assertIsString($metrics->render());
 
         $shell = new ShellExecPanel('Shell');
+        $shell->setDimensions(80, 24);
         $this->assertIsString($shell->render());
 
         $settings = new SettingsPanel('Settings');
+        $settings->setDimensions(80, 24);
         $this->assertIsString($settings->render());
     }
 
@@ -111,26 +120,26 @@ class FrankenCommandTest extends TestCase
         );
 
         // Test initial panel
-        $this->assertEquals('overview', $dashboard->getCurrentPanel());
+        $this->assertEquals('overview', strtolower($dashboard->getCurrentPanel()->getName()));
 
         // Test switching panels
         $dashboard->switchPanel('logs');
-        $this->assertEquals('logs', $dashboard->getCurrentPanel());
+        $this->assertEquals('logs', strtolower($dashboard->getCurrentPanel()->getName()));
 
         $dashboard->switchPanel('queues');
-        $this->assertEquals('queues', $dashboard->getCurrentPanel());
+        $this->assertEquals('queues', strtolower($dashboard->getCurrentPanel()->getName()));
 
         // Test next/previous
         $dashboard->switchPanel('overview');
         $dashboard->nextPanel();
-        $this->assertEquals('queues', $dashboard->getCurrentPanel());
+        $this->assertEquals('queues', strtolower($dashboard->getCurrentPanel()->getName()));
 
         $dashboard->previousPanel();
-        $this->assertEquals('overview', $dashboard->getCurrentPanel());
+        $this->assertEquals('overview', strtolower($dashboard->getCurrentPanel()->getName()));
 
         // Test wrap-around
         $dashboard->previousPanel();
-        $this->assertEquals('settings', $dashboard->getCurrentPanel());
+        $this->assertEquals('settings', strtolower($dashboard->getCurrentPanel()->getName()));
     }
 
     public function testTheme(): void
