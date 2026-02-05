@@ -308,9 +308,9 @@ class Dashboard
         $contentLines = explode("\n", trim($panelContent));
         
         // Render box top
-        $border = $this->theme->boxBorder('+') . 
-                  str_repeat($this->theme->boxBorder('-'), $width - 2) . 
-                  $this->theme->boxBorder('+');
+        $border = $this->theme->boxBorder('╭') . 
+                  str_repeat($this->theme->boxBorder('─'), $width - 2) . 
+                  $this->theme->boxBorder('╮');
         
         $output = $border . "\n";
         
@@ -321,27 +321,23 @@ class Dashboard
                 break;
             }
             
-            $cleanLine = preg_replace('/\033\[[0-9;]*m/', '', $line);
-            $lineLen = mb_strlen($cleanLine);
-            
-            if ($lineLen > $contentWidth) {
-                $line = mb_substr($cleanLine, 0, $contentWidth - 3) . '...';
-                $lineLen = $contentWidth;
-            }
-            
+            $truncated = $this->theme->truncate($line, $contentWidth);
+            $cleanTruncated = preg_replace('/\033\[[0-9;]*m/', '', $truncated);
+            $lineLen = mb_strlen($cleanTruncated);
             $padding = max(0, $contentWidth - $lineLen);
-            $output .= $this->theme->boxBorder('|') . ' ' . $line . str_repeat(' ', $padding) . ' ' . $this->theme->boxBorder('|') . "\n";
+            
+            $output .= $this->theme->boxBorder('│') . ' ' . $truncated . str_repeat(' ', $padding) . ' ' . $this->theme->boxBorder('│') . "\n";
             $lineCount++;
         }
         
         // Fill remaining lines
         while ($lineCount < $availableLines) {
-            $output .= $this->theme->boxBorder('|') . str_repeat(' ', $contentWidth + 2) . $this->theme->boxBorder('|') . "\n";
+            $output .= $this->theme->boxBorder('│') . str_repeat(' ', $contentWidth + 2) . $this->theme->boxBorder('│') . "\n";
             $lineCount++;
         }
         
         // Box bottom border
-        $output .= $this->theme->boxBorder('+') . str_repeat($this->theme->boxBorder('-'), $width - 2) . $this->theme->boxBorder('+') . "\n";
+        $output .= $this->theme->boxBorder('╰') . str_repeat($this->theme->boxBorder('─'), $width - 2) . $this->theme->boxBorder('╯') . "\n";
         
         return $output;
     }

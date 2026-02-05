@@ -240,11 +240,46 @@ class Theme
     }
 
     /**
-     * Style for border elements
+     * Truncate text to visible width while preserving ANSI codes
      */
-    public function border(): string
+    public function truncate(string $text, int $maxWidth): string
     {
-        return $this->color('muted');
+        $clean = preg_replace('/\033\[[0-9;]*m/', '', $text);
+        if (mb_strlen($clean) <= $maxWidth) {
+            return $text;
+        }
+
+        // Build truncated string preserving ANSI codes
+        $result = '';
+        $visibleCount = 0;
+        $i = 0;
+        $textLen = mb_strlen($text);
+
+        while ($i < $textLen && $visibleCount < $maxWidth - 3) {
+            $char = mb_substr($text, $i, 1);
+            if ($char === "\033") {
+                // ANSI escape sequence
+                $result .= $char;
+                $i++;
+                while ($i < $textLen && mb_substr($text, $i, 1) !== 'm') {
+                    $result .= mb_substr($text, $i, 1);
+                    $i++;
+                }
+                if ($i < $textLen) {
+                    $result .= 'm';
+                    $i++;
+                }
+            } else {
+                $result .= $char;
+                $visibleCount++;
+                $i++;
+            }
+        }
+
+        // Add ellipsis
+        $result .= '...';
+
+        return $result;
     }
 
     /**
@@ -252,7 +287,7 @@ class Theme
      */
     public function boxBorder(string $text): string
     {
-        return $text;
+        return $this->bold($text);
     }
 
     /**
