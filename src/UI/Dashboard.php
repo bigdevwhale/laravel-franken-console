@@ -201,7 +201,7 @@ class Dashboard
             $tabString .= str_repeat(' ', $width - $cleanLength);
         }
 
-        return $tabString . "\n" . $this->theme->dim(str_repeat('─', $width)) . "\n";
+        return $tabString;
     }
 
     private function styleTab(Panel $panel, string $display): string
@@ -314,26 +314,10 @@ class Dashboard
         
         $output = $border . "\n";
         
-        // Add viewing line
-        $totalLines = count($contentLines);
-        $start = 1;
-        $end = min($totalLines, $availableLines - 3); // Account for borders and viewing line
-        
-        $count = "Viewing [$start-$end] of $totalLines";
-        $state = $this->getCurrentPanel()->isPaused() ? '(Paused)' : '(Live)';
-        $stateTreatment = $this->getCurrentPanel()->isPaused() ? 'logsPaused' : 'logsLive';
-        
-        $viewingLine = $this->theme->dim($count) . ' ' . $this->theme->{$stateTreatment}($state);
-        $viewingPadded = $this->theme->boxBorder('│') . ' ' . $viewingLine . str_repeat(' ', $contentWidth - mb_strlen(preg_replace('/\033\[[0-9;]*m/', '', $viewingLine))) . ' ' . $this->theme->boxBorder('│');
-        $output .= $viewingPadded . "\n";
-        
-        // Separator
-        $output .= $this->theme->boxBorder('├') . str_repeat($this->theme->boxBorder('─'), $width - 2) . $this->theme->boxBorder('┤') . "\n";
-        
         // Content lines
         $lineCount = 0;
         foreach ($contentLines as $line) {
-            if ($lineCount >= $availableLines - 3) { // Account for top border, viewing, separator, bottom border
+            if ($lineCount >= $availableLines) {
                 break;
             }
             
@@ -351,7 +335,7 @@ class Dashboard
         }
         
         // Fill remaining lines
-        while ($lineCount < $availableLines - 3) {
+        while ($lineCount < $availableLines) {
             $output .= $this->theme->boxBorder('│') . str_repeat(' ', $contentWidth + 2) . $this->theme->boxBorder('│') . "\n";
             $lineCount++;
         }

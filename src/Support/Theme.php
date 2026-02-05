@@ -252,7 +252,7 @@ class Theme
      */
     public function boxBorder(string $text): string
     {
-        return $this->styled($text, 'muted');
+        return $text;
     }
 
     /**
