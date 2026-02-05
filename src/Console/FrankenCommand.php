@@ -27,6 +27,7 @@ class FrankenCommand extends Command
     private Terminal $terminal;
     private bool $running = true;
     private bool $needsRender = true;
+    private string $previousOutput = '';
 
     private function shouldPoll(): bool
     {
@@ -305,26 +306,53 @@ class FrankenCommand extends Command
         return false;
     }
 
-    private function handleSearchInput(string $key): void
+    private function renderDiff(string $previous, string $current): void
     {
-        if ($key === "\n" || $key === "\r") { // Enter
-            // Exit search mode
-            $this->dashboard->exitSearchMode();
-        } elseif ($key === "\033") { // Escape
-            $this->dashboard->exitSearchMode();
-        } elseif (ctype_print($key)) {
-            $this->dashboard->addSearchChar($key);
+        $prevLines = explode("\n", $previous);
+        $currLines = explode("\n", $current);
+        
+        $maxLines = max(count($prevLines), count($currLines));
+        
+        echo "\033[H"; // Move cursor to home
+        
+        for ($i = 0; $i < $maxLines; $i++) {
+            $prevLine = $prevLines[$i] ?? '';
+            $currLine = $currLines[$i] ?? '';
+            
+            if ($prevLine !== $currLine) {
+                // Move to line i
+                if ($i > 0) {
+                    echo "\033[{$i}B";
+                }
+                // Clear the line
+                echo "\033[2K";
+                // Output the new line
+                echo $currLine;
+                // Move back to home for next
+                if ($i > 0) {
+                    echo "\033[{$i}A";
+                }
+            }
         }
     }
 
     private function render(): void
     {
         $this->terminal->refreshDimensions();
-        $this->terminal->clearScreen();  // Explicit clear + home
-        echo "\033[0m";  // Reset attributes
-
+        
         $output = $this->dashboard->render();
-        echo $output;
+        
+        if ($this->previousOutput === '') {
+            // First render - clear screen and output everything
+            $this->terminal->clearScreen();
+            echo "\033[0m";  // Reset attributes
+            echo $output;
+        } else {
+            // Subsequent renders - diff update
+            $this->renderDiff($this->previousOutput, $output);
+        }
+        
+        $this->previousOutput = $output;
 
         if (function_exists('ob_flush')) {
             @ob_flush();
