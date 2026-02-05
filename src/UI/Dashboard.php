@@ -214,6 +214,15 @@ class Dashboard
         return $selectedTabs;
     }
 
+    private function styleTab(Panel $panel, string $display): string
+    {
+        if ($panel->isFocused()) {
+            return $this->theme->tabFocused($display, 'focused');
+        } else {
+            return $this->theme->tabBlurred($display, '');
+        }
+    }
+
     private function calculateVisibleTabs($tabs, int $focused, int $maxWidth): array
     {
         // Start with just the focused tab

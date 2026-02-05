@@ -11,22 +11,10 @@ class Theme
 
     public function __construct(?string $themeName = null)
     {
-        $this->themeName = $themeName ?? config('franken.theme.name', 'dark');
+        $this->themeName = $themeName ?? 'dark';
         
-        // First try to get theme-specific colors
-        $themeColors = config("franken.theme.themes.{$this->themeName}");
-        
-        // Fall back to default colors if theme not found
-        if (empty($themeColors)) {
-            $themeColors = config('franken.theme.colors');
-        }
-        
-        // If still empty, use hardcoded defaults
-        if (empty($themeColors)) {
-            $themeColors = $this->getDefaultColors();
-        }
-        
-        $this->colors = $themeColors;
+        // Use default colors
+        $this->colors = $this->getDefaultColors();
     }
 
     private function getDefaultColors(): array

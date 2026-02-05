@@ -96,58 +96,7 @@ class QueueAdapter
 
     private function fetchRecentJobs(int $limit = 50): array
     {
-        try {
-            $jobs = [];
-            
-            // Get pending jobs
-            $pendingJobs = DB::table('jobs')
-                ->orderBy('created_at', 'desc')
-                ->limit($limit)
-                ->get();
-            
-            foreach ($pendingJobs as $job) {
-                $payload = json_decode($job->payload, true);
-                $jobs[] = [
-                    'id' => $job->id,
-                    'class' => $payload['displayName'] ?? 'Unknown',
-                    'status' => 'pending',
-                    'processed_at' => '-',
-                    'queue' => $job->queue,
-                ];
-            }
-            
-            // Get failed jobs
-            try {
-                $failedJobs = DB::table('failed_jobs')
-                    ->orderBy('failed_at', 'desc')
-                    ->limit($limit)
-                    ->get();
-                
-                foreach ($failedJobs as $job) {
-                    $payload = json_decode($job->payload, true);
-                    $jobs[] = [
-                        'id' => $job->id,
-                        'class' => $payload['displayName'] ?? 'Unknown',
-                        'status' => 'failed',
-                        'processed_at' => $job->failed_at,
-                        'queue' => $job->queue,
-                    ];
-                }
-            } catch (\Exception $e) {
-                // failed_jobs table might not exist
-            }
-            
-            // Sort by ID/time descending
-            usort($jobs, fn($a, $b) => $b['id'] <=> $a['id']);
-            
-            if (empty($jobs)) {
-                $jobs = $this->getMockJobs();
-            }
-            
-            return array_slice($jobs, 0, $limit);
-        } catch (\Exception $e) {
-            return $this->getMockJobs();
-        }
+        return $this->getMockJobs();
     }
 
     private function getMockJobs(): array
