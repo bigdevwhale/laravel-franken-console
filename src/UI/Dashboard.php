@@ -302,15 +302,15 @@ class Dashboard
     private function renderContentPane(int $width, int $height): string
     {
         $contentWidth = $width - 4;
-        $availableLines = $height - 6; // Total available for content pane
+        $availableLines = $height - 8; // Reserve more space for borders and other elements
         
         $panelContent = $this->getCurrentPanel()->render();
         $contentLines = explode("\n", trim($panelContent));
         
-        // Render box top
-        $border = $this->theme->boxBorder('╭') . 
-                  str_repeat($this->theme->boxBorder('─'), $width - 2) . 
-                  $this->theme->boxBorder('╮');
+        // Render box top using ASCII characters
+        $border = $this->theme->boxBorder('+') . 
+                  str_repeat($this->theme->boxBorder('-'), $width - 2) . 
+                  $this->theme->boxBorder('+');
         
         $output = $border . "\n";
         
@@ -326,18 +326,18 @@ class Dashboard
             $lineLen = mb_strlen($cleanTruncated);
             $padding = max(0, $contentWidth - $lineLen);
             
-            $output .= $this->theme->boxBorder('│') . ' ' . $truncated . str_repeat(' ', $padding) . ' ' . $this->theme->boxBorder('│') . "\n";
+            $output .= $this->theme->boxBorder('|') . ' ' . $truncated . str_repeat(' ', $padding) . ' ' . $this->theme->boxBorder('|') . "\n";
             $lineCount++;
         }
         
         // Fill remaining lines
         while ($lineCount < $availableLines) {
-            $output .= $this->theme->boxBorder('│') . str_repeat(' ', $contentWidth + 2) . $this->theme->boxBorder('│') . "\n";
+            $output .= $this->theme->boxBorder('|') . str_repeat(' ', $contentWidth + 2) . $this->theme->boxBorder('|') . "\n";
             $lineCount++;
         }
         
         // Box bottom border
-        $output .= $this->theme->boxBorder('╰') . str_repeat($this->theme->boxBorder('─'), $width - 2) . $this->theme->boxBorder('╯') . "\n";
+        $output .= $this->theme->boxBorder('+') . str_repeat($this->theme->boxBorder('-'), $width - 2) . $this->theme->boxBorder('+') . "\n";
         
         return $output;
     }
