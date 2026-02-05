@@ -10,8 +10,6 @@ use Franken\Console\Support\Theme;
 class MetricsPanel extends Panel
 {
     private Theme $theme;
-    private int $terminalHeight = 24;
-    private int $terminalWidth = 80;
     private MetricsAdapter $adapter;
 
     public function __construct(string $name = 'Metrics', MetricsAdapter $adapter)
@@ -21,20 +19,10 @@ class MetricsPanel extends Panel
         $this->theme = new Theme();
     }
 
-    public function setTerminalHeight(int $height): void
-    {
-        $this->terminalHeight = $height;
-    }
-
-    public function setTerminalWidth(int $width): void
-    {
-        $this->terminalWidth = $width;
-    }
-
     public function render(): string
     {
-        $width = $this->terminalWidth;
-        $height = $this->terminalHeight;
+        $width = $this->width;
+        $height = $this->height;
         $lineWidth = max(40, $width - 4);
         
         $metrics = $this->adapter->getMetrics();
@@ -143,7 +131,7 @@ class MetricsPanel extends Panel
 
     private function renderMetricRow(string $label, array $values, string $unit, string $color): string
     {
-        $sparkWidth = min(10, max(5, (int)(($this->terminalWidth - 45) / 3)));
+        $sparkWidth = min(10, max(5, (int)(($this->width - 45) / 3)));
         $sparkline = $this->renderSparkline(array_slice($values, -$sparkWidth), $color);
         $current = end($values);
         $trend = $this->getTrend($values);
@@ -154,7 +142,7 @@ class MetricsPanel extends Panel
             default => $this->theme->dim('→'),
         };
 
-        $labelWidth = $this->terminalWidth >= 70 ? 16 : 12;
+        $labelWidth = $this->width >= 70 ? 16 : 12;
         $shortLabel = strlen($label) > $labelWidth ? substr($label, 0, $labelWidth - 2) . ':' : $label . ':';
 
         return sprintf(

@@ -15,8 +15,6 @@ class ShellExecPanel extends Panel
     private int $historyIndex = -1;
     private bool $inputMode = false;
     private int $scrollOffset = 0;
-    private int $terminalHeight = 24;
-    private int $terminalWidth = 80;
 
     public function __construct(string $name = 'Shell')
     {
@@ -24,32 +22,16 @@ class ShellExecPanel extends Panel
         $this->theme = new Theme();
     }
 
-    protected function onDimensionsChanged(int $width, int $height): void
-    {
-        $this->terminalWidth = $width;
-        $this->terminalHeight = $height;
-    }
-
-    public function setTerminalHeight(int $height): void
-    {
-        $this->terminalHeight = $height;
-    }
-
-    public function setTerminalWidth(int $width): void
-    {
-        $this->terminalWidth = $width;
-    }
-
     private function getVisibleOutputLines(): int
     {
         // Reserve lines for header, quick commands, input, help
-        return max(3, $this->terminalHeight - 18);
+        return max(3, $this->height - 18);
     }
 
     public function render(): string
     {
-        $width = $this->terminalWidth;
-        $height = $this->terminalHeight;
+        $width = $this->width;
+        $height = $this->height;
         $lineWidth = max(40, $width - 4);
         
         $output = $this->theme->bold($this->theme->styled('ARTISAN SHELL', 'secondary')) . "\n";

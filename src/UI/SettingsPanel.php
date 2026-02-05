@@ -10,8 +10,6 @@ class SettingsPanel extends Panel
 {
     private Theme $theme;
     private int $selectedSetting = 0;
-    private int $terminalHeight = 24;
-    private int $terminalWidth = 80;
 
     public function __construct(string $name = 'Settings')
     {
@@ -19,26 +17,10 @@ class SettingsPanel extends Panel
         $this->theme = new Theme();
     }
 
-    protected function onDimensionsChanged(int $width, int $height): void
-    {
-        $this->terminalWidth = $width;
-        $this->terminalHeight = $height;
-    }
-
-    public function setTerminalHeight(int $height): void
-    {
-        $this->terminalHeight = $height;
-    }
-
-    public function setTerminalWidth(int $width): void
-    {
-        $this->terminalWidth = $width;
-    }
-
     public function render(): string
     {
-        $width = $this->terminalWidth;
-        $height = $this->terminalHeight;
+        $width = $this->width;
+        $height = $this->height;
         $lineWidth = max(40, $width - 4);
         
         $config = config('franken', []);

@@ -12,8 +12,6 @@ class SchedulerPanel extends Panel
     private int $selectedIndex = 0;
     private int $scrollOffset = 0;
     private array $scheduledTasks = [];
-    private int $terminalHeight = 24;
-    private int $terminalWidth = 80;
 
     public function __construct(string $name = 'Scheduler')
     {
@@ -21,32 +19,16 @@ class SchedulerPanel extends Panel
         $this->theme = new Theme();
     }
 
-    protected function onDimensionsChanged(int $width, int $height): void
-    {
-        $this->terminalWidth = $width;
-        $this->terminalHeight = $height;
-    }
-
-    public function setTerminalHeight(int $height): void
-    {
-        $this->terminalHeight = $height;
-    }
-
-    public function setTerminalWidth(int $width): void
-    {
-        $this->terminalWidth = $width;
-    }
-
     private function getVisibleTaskCount(): int
     {
         // Reserve lines for headers, status section, help
-        return max(2, $this->terminalHeight - 16);
+        return max(2, $this->height - 16);
     }
 
     public function render(): string
     {
-        $width = $this->terminalWidth;
-        $height = $this->terminalHeight;
+        $width = $this->width;
+        $height = $this->height;
         $lineWidth = max(40, $width - 4);
         
         $this->scheduledTasks = $this->getScheduledTasks();

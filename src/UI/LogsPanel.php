@@ -15,8 +15,6 @@ class LogsPanel extends Panel
     private string $searchQuery = '';
     private array $filteredLogs = [];
     private Theme $theme;
-    private int $terminalHeight = 24;
-    private int $terminalWidth = 80;
     private LogAdapter $adapter;
 
     public function __construct(string $name = 'Logs', LogAdapter $adapter)
@@ -26,19 +24,10 @@ class LogsPanel extends Panel
         $this->theme = new Theme();
     }
 
-    public function setTerminalHeight(int $height): void
-    {
-        $this->terminalHeight = $height;
-    }
-
-    public function setTerminalWidth(int $width): void
-    {
-        $this->terminalWidth = $width;
-    }
-
     public function render(): string
     {
-        $width = $this->terminalWidth;
+        $width = $this->width;
+        $height = $this->height;
         $logs = $this->adapter->getRecentLogs(100);
 
         // Filter logs if searching
@@ -146,7 +135,7 @@ class LogsPanel extends Panel
         $output .= $pageInfo . $countInfo . $scrollIndicators . "\n";
         
         // Responsive help line (only if there's room)
-        if ($this->terminalHeight >= 15) {
+        if ($height >= 15) {
             if ($width >= 80) {
                 $output .= $this->theme->styled('/', 'secondary') . $this->theme->dim('Search ') .
                        $this->theme->styled('↑↓', 'secondary') . $this->theme->dim('Nav ') .
@@ -206,7 +195,7 @@ class LogsPanel extends Panel
 
     private function getVisibleLines(): int
     {
-        return max(5, $this->terminalHeight - 10);
+        return max(5, $this->height - 10);
     }
 
     public function scrollUp(): void

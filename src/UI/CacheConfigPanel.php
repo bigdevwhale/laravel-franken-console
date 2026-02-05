@@ -12,8 +12,6 @@ class CacheConfigPanel extends Panel
     private Theme $theme;
     private int $selectedAction = 0;
     private int $scrollOffset = 0;
-    private int $terminalHeight = 24;
-    private int $terminalWidth = 80;
     private CacheAdapter $adapter;
     private array $actions = [
         ['key' => 'cache:clear', 'name' => 'Clear Application Cache', 'desc' => 'Flush the application cache'],
@@ -30,20 +28,10 @@ class CacheConfigPanel extends Panel
         $this->theme = new Theme();
     }
 
-    public function setTerminalHeight(int $height): void
-    {
-        $this->terminalHeight = $height;
-    }
-
-    public function setTerminalWidth(int $width): void
-    {
-        $this->terminalWidth = $width;
-    }
-
     public function render(): string
     {
-        $width = $this->terminalWidth;
-        $height = $this->terminalHeight;
+        $width = $this->width;
+        $height = $this->height;
         $lineWidth = max(40, $width - 4);
         
         $stats = $this->adapter->getCacheStats();
